@@ -42,6 +42,17 @@ const Layout = ({ children }) => {
                   Home
                 </button>
                 <button
+                  onClick={() => handleNavigate('upload')}
+                  className={`block w-full text-left px-4 py-2 text-sm ${
+                    currentPage === 'upload' 
+                      ? 'bg-gray-100 text-blue-600 font-medium' 
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                  role="menuitem"
+                >
+                  Upload
+                </button>
+                <button
                   onClick={() => handleNavigate('about')}
                   className={`block w-full text-left px-4 py-2 text-sm ${
                     currentPage === 'about' 

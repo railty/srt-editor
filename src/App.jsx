@@ -3,6 +3,7 @@ import Layout from './components/Layout';
 import About from './pages/About';
 import Settings from './pages/Settings';
 import Home from './pages/Home';
+import Upload from './pages/Upload';
 import useAppStore from './store/useAppStore';
 
 function App() {
@@ -15,6 +16,8 @@ function App() {
         return <About />;
       case 'settings':
         return <Settings />;
+      case 'upload':
+        return <Upload />;
       default:
         return <Home />
     }
