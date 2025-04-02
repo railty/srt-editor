@@ -11,6 +11,7 @@ import { setupAudioKeyboardShortcuts } from '../../utils/keyboardShortcuts';
 const AudioWaveform = ({ audioURL }) => {
   const waveformRef = useRef(null);
   const wavesurferRef = useRef(null);
+  const regionsPluginRef = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
   
   // Get state and actions from our Zustand store
@@ -25,12 +26,43 @@ const AudioWaveform = ({ audioURL }) => {
   // Initialize WaveSurfer when component mounts
   useEffect(() => {
     let wavesurfer = null;
+    let regionCounter = 0;
     
     const initWaveSurfer = async () => {
       setIsLoading(true);
       
       if (audioURL && waveformRef.current) {
         try {        
+          // Add custom CSS for region labels
+          const style = document.createElement('style');
+          style.textContent = `
+            .wavesurfer-region::before {
+              content: attr(data-label);
+              position: absolute;
+              top: 0;
+              left: 2px;
+              color: #000;
+              font-size: 10px;
+              font-weight: bold;
+              background-color: rgba(255, 255, 255, 0.7);
+              padding: 0 4px;
+              border-radius: 2px;
+              pointer-events: none;
+              z-index: 2;
+            }
+          `;
+          document.head.appendChild(style);
+          
+          // Create the regions plugin first
+          const regionsPlugin = RegionsPlugin.create({
+            dragSelection: {
+              color: 'rgba(54, 162, 235, 0.3)',
+            },
+          });
+          
+          // Store reference to regions plugin
+          regionsPluginRef.current = regionsPlugin;
+          
           // Create WaveSurfer instance
           wavesurfer = WaveSurfer.create({
             container: waveformRef.current,
@@ -55,11 +87,8 @@ const AudioWaveform = ({ audioURL }) => {
                   return formatTime(seconds);
                 },
               }),
-              // Regions plugin for selecting parts of audio
-              RegionsPlugin.create({
-                regionsMinLength: 0.1,
-                dragSelection: true,
-              }),
+              // Add our regions plugin
+              regionsPlugin
             ],
           });
 
@@ -70,6 +99,17 @@ const AudioWaveform = ({ audioURL }) => {
           wavesurfer.on('ready', () => {
             setDuration(wavesurfer.getDuration());
             setIsLoading(false);
+            
+            // Explicitly enable drag selection
+            if (regionsPlugin) {
+              try {
+                regionsPlugin.enableDragSelection({
+                  color: 'rgba(54, 162, 235, 0.5)',
+                });
+              } catch (error) {
+                console.error('Error enabling drag selection:', error);
+              }
+            }
           });
 
           wavesurfer.on('play', () => {
@@ -88,32 +128,62 @@ const AudioWaveform = ({ audioURL }) => {
             setCurrentTime(wavesurfer.getCurrentTime());
           });
           
-          // Regions events
-          wavesurfer.on('region-created', (region) => {
-            // Set a random color for the region
-            const color = `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, 0.3)`;
-            
-            region.setOptions({
-              color: color,
+          // Set up region events
+          if (regionsPlugin) {
+            // Regions events
+            regionsPlugin.on('region-created', (region) => {
+              // Increment counter for each new region
+              regionCounter++;
+              const regionLabel = `Region ${regionCounter}`;
+              
+              // Set a more distinct color with higher contrast for the region
+              const colors = [
+                'rgba(255, 99, 132, 0.5)',   // red
+                'rgba(54, 162, 235, 0.5)',   // blue
+                'rgba(255, 206, 86, 0.5)',   // yellow
+                'rgba(75, 192, 192, 0.5)',   // teal
+                'rgba(153, 102, 255, 0.5)',  // purple
+                'rgba(255, 159, 64, 0.5)',   // orange
+                'rgba(46, 204, 113, 0.5)',   // green
+                'rgba(236, 64, 122, 0.5)',   // pink
+              ];
+              const color = colors[Math.floor(Math.random() * colors.length)];
+              
+              // Configure the region with our options
+              try {
+                region.setOptions({
+                  color: color,
+                  drag: true,
+                  resize: true
+                });
+                
+                // Add the label as a data attribute to the region element
+                if (region.element) {
+                  region.element.setAttribute('data-label', regionLabel);
+                }
+                
+                // Store the region in our Zustand store
+                addRegion({
+                  id: region.id,
+                  start: region.start,
+                  end: region.end,
+                  color: color,
+                  label: regionLabel
+                });
+              } catch (error) {
+                console.error('Error configuring region:', error);
+              }
             });
             
-            // Store the region in our Zustand store
-            addRegion({
-              id: region.id,
-              start: region.start,
-              end: region.end,
-              color: color
+            regionsPlugin.on('region-clicked', (region) => {
+              region.play();
             });
-          });
-          
-          wavesurfer.on('region-clicked', (region) => {
-            region.play();
-          });
-          
-          wavesurfer.on('region-removed', (region) => {
-            // Remove the region from our store
-            removeRegion(region.id);
-          });
+            
+            regionsPlugin.on('region-removed', (region) => {
+              // Remove the region from our store
+              removeRegion(region.id);
+            });
+          }
 
           // Load audio with error handling
           try {
@@ -137,6 +207,7 @@ const AudioWaveform = ({ audioURL }) => {
         try {
           wavesurferRef.current.destroy();
           wavesurferRef.current = null;
+          regionsPluginRef.current = null;
         } catch (error) {
           console.warn('Error destroying WaveSurfer:', error);
         }
@@ -246,18 +317,9 @@ const AudioWaveform = ({ audioURL }) => {
 
   // Clear all regions
   const handleClearRegions = () => {
-    if (wavesurferRef.current && !isLoading) {
+    if (regionsPluginRef.current && !isLoading) {
       try {
-        const regions = wavesurferRef.current.getRegions();
-        if (regions && regions.length) {
-          regions.forEach(region => {
-            try {
-              region.remove();
-            } catch (error) {
-              console.warn('Error removing region:', error);
-            }
-          });
-        }
+        regionsPluginRef.current.clearRegions();
       } catch (error) {
         console.warn('Error clearing regions:', error);
       }
@@ -291,7 +353,10 @@ const AudioWaveform = ({ audioURL }) => {
           ></div>
         </div>
         <div id="timeline" className="w-full h-10"></div>
-        <div className="text-xs text-gray-500 mt-1">Drag to create regions, click to play selected region</div>
+        <div className="text-xs text-gray-500 mt-1">
+          <p>Click and drag on waveform to create regions.</p>
+          <p>Click a region to play it. Drag region edges to resize.</p>
+        </div>
       </div>
       
       <div className="flex items-center justify-between mt-2">

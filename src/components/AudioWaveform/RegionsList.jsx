@@ -20,9 +20,14 @@ const RegionsList = ({ wavesurfer }) => {
   const deleteRegion = (regionId) => {
     if (wavesurfer) {
       try {
-        const region = wavesurfer.getRegions().find(r => r.id === regionId);
-        if (region) {
-          region.remove();
+        // Find the regions plugin first
+        const regionsPlugin = wavesurfer.plugins[0];
+        if (regionsPlugin && regionsPlugin.getRegions) {
+          const regions = regionsPlugin.getRegions();
+          const region = regions.find(r => r.id === regionId);
+          if (region) {
+            region.remove();
+          }
         }
       } catch (error) {
         console.warn('Error deleting region:', error);
@@ -36,9 +41,14 @@ const RegionsList = ({ wavesurfer }) => {
   const seekToRegion = (regionId) => {
     if (wavesurfer) {
       try {
-        const region = wavesurfer.getRegions().find(r => r.id === regionId);
-        if (region) {
-          wavesurfer.setTime(region.start);
+        // Find the regions plugin first
+        const regionsPlugin = wavesurfer.plugins[0];
+        if (regionsPlugin && regionsPlugin.getRegions) {
+          const regions = regionsPlugin.getRegions();
+          const region = regions.find(r => r.id === regionId);
+          if (region) {
+            wavesurfer.setTime(region.start);
+          }
         }
       } catch (error) {
         console.warn('Error seeking to region:', error);
@@ -50,9 +60,14 @@ const RegionsList = ({ wavesurfer }) => {
   const playRegion = (regionId) => {
     if (wavesurfer) {
       try {
-        const region = wavesurfer.getRegions().find(r => r.id === regionId);
-        if (region) {
-          region.play();
+        // Find the regions plugin first
+        const regionsPlugin = wavesurfer.plugins[0];
+        if (regionsPlugin && regionsPlugin.getRegions) {
+          const regions = regionsPlugin.getRegions();
+          const region = regions.find(r => r.id === regionId);
+          if (region) {
+            region.play();
+          }
         }
       } catch (error) {
         console.warn('Error playing region:', error);
@@ -75,6 +90,8 @@ const RegionsList = ({ wavesurfer }) => {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-100">
+              <th className="px-2 py-1 text-left">Color</th>
+              <th className="px-2 py-1 text-left">Label</th>
               <th className="px-2 py-1 text-left">Start</th>
               <th className="px-2 py-1 text-left">End</th>
               <th className="px-2 py-1 text-left">Duration</th>
@@ -83,7 +100,15 @@ const RegionsList = ({ wavesurfer }) => {
           </thead>
           <tbody>
             {regions.map((region) => (
-              <tr key={region.id} className="border-b border-gray-100">
+              <tr key={region.id} className="border-b border-gray-100" style={{ borderLeft: `4px solid ${region.color?.replace('0.5', '0.8') || 'rgba(0,0,0,0.2)'}` }}>
+                <td className="px-2 py-1">
+                  <div 
+                    className="w-6 h-6 rounded-md border border-gray-200" 
+                    style={{ backgroundColor: region.color || 'rgba(0,0,0,0.2)' }}
+                    title="Region color"
+                  ></div>
+                </td>
+                <td className="px-2 py-1 font-medium">{region.label || `Region ${regions.indexOf(region) + 1}`}</td>
                 <td className="px-2 py-1">{formatTime(region.start)}</td>
                 <td className="px-2 py-1">{formatTime(region.end)}</td>
                 <td className="px-2 py-1">{formatTime(region.end - region.start)}</td>

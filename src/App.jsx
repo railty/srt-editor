@@ -23,19 +23,6 @@ function App() {
     }
   };
 
-  // Example of using the app store to update status
-  useEffect(() => {
-    // Just a demo - in a real app, you might update status based on operations
-    const timer = setTimeout(() => {
-      if (status === 'Ready') {
-        setStatus('Processing...');
-        setTimeout(() => setStatus('Ready'), 2000);
-      }
-    }, 5000);
-    
-    return () => clearTimeout(timer);
-  }, [status, setStatus]);
-
   // Update Layout to use the app store and handle navigation
   return (
     <Layout 

@@ -6,11 +6,8 @@ const Home = () => {
 
   return (
     <div className="mx-auto">
-      <h2 className="text-2xl font-bold mb-6">Welcome to SRT Editor</h2>
-      
       {/* Display uploaded files */}
-      <div className="mb-6 bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-        <h3 className="text-lg font-medium mb-4">Your Files</h3>
+      <div className="mb-6 bg-white p-2 rounded-lg shadow-sm border border-gray-200">
         {(!audioFile && !subtitleFile) ? (
           <p className="text-gray-500">
             No files uploaded yet. Use the Upload menu to get started.
