@@ -2,8 +2,8 @@ import React from 'react';
 import useAudioStore from '../../stores/audioStore';
 
 const RegionsList = ({ wavesurfer }) => {
-  // Get regions from store
-  const { regions, removeRegion } = useAudioStore();
+  // Get regions and selection from store
+  const { regions, removeRegion, selectedRegionId, selectRegion } = useAudioStore();
 
   // Format time in MM:SS.mmm format
   const formatTime = (time) => {
@@ -75,22 +75,39 @@ const RegionsList = ({ wavesurfer }) => {
     }
   };
 
+  // Function to get speaker label
+  const getSpeakerLabel = (speaker) => {
+    if (speaker === undefined || speaker === null) return '';
+    return `Speaker ${speaker}`;
+  };
+
+  // Get speaker badge color
+  const getSpeakerBadgeColor = (speaker) => {
+    if (speaker === 0) {
+      return 'bg-red-100 text-red-800';
+    } else if (speaker === 1) {
+      return 'bg-blue-100 text-blue-800';
+    } else {
+      return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   if (!regions || regions.length === 0) {
     return (
       <div className="mt-4 text-sm text-gray-500 italic">
-        No regions selected. Drag on the waveform to create regions.
+        No regions available. When you load an SRT file, regions will be created automatically.
       </div>
     );
   }
 
   return (
     <div className="mt-4">
-      <h4 className="font-medium mb-2">Selected Regions</h4>
+      <h4 className="font-medium mb-2">Subtitle Regions</h4>
       <div className="max-h-40 overflow-y-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-100">
-              <th className="px-2 py-1 text-left">Color</th>
+              <th className="px-2 py-1 text-left">Speaker</th>
               <th className="px-2 py-1 text-left">Label</th>
               <th className="px-2 py-1 text-left">Start</th>
               <th className="px-2 py-1 text-left">End</th>
@@ -100,21 +117,34 @@ const RegionsList = ({ wavesurfer }) => {
           </thead>
           <tbody>
             {regions.map((region) => (
-              <tr key={region.id} className="border-b border-gray-100" style={{ borderLeft: `4px solid ${region.color?.replace('0.5', '0.8') || 'rgba(0,0,0,0.2)'}` }}>
+              <tr 
+                key={region.id} 
+                className={`border-b border-gray-100 ${region.id === selectedRegionId ? 'bg-yellow-50' : ''}`}
+                style={{ borderLeft: `4px solid ${region.color?.replace('0.5', '0.8') || 'rgba(0,0,0,0.2)'}` }}
+                onClick={() => selectRegion(region.id)}
+              >
                 <td className="px-2 py-1">
-                  <div 
-                    className="w-6 h-6 rounded-md border border-gray-200" 
-                    style={{ backgroundColor: region.color || 'rgba(0,0,0,0.2)' }}
-                    title="Region color"
-                  ></div>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getSpeakerBadgeColor(region.speaker)}`}>
+                    {getSpeakerLabel(region.speaker)}
+                  </span>
                 </td>
                 <td className="px-2 py-1 font-medium">{region.label || `Region ${regions.indexOf(region) + 1}`}</td>
                 <td className="px-2 py-1">{formatTime(region.start)}</td>
                 <td className="px-2 py-1">{formatTime(region.end)}</td>
                 <td className="px-2 py-1">{formatTime(region.end - region.start)}</td>
                 <td className="px-2 py-1 flex space-x-1">
+                  {region.id === selectedRegionId && (
+                    <div className="flex items-center mr-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
                   <button 
-                    onClick={() => seekToRegion(region.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      seekToRegion(region.id);
+                    }}
                     className="text-blue-500 hover:text-blue-700 p-1"
                     title="Seek to region"
                   >
@@ -123,7 +153,10 @@ const RegionsList = ({ wavesurfer }) => {
                     </svg>
                   </button>
                   <button 
-                    onClick={() => playRegion(region.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      playRegion(region.id);
+                    }}
                     className="text-green-500 hover:text-green-700 p-1"
                     title="Play region"
                   >
@@ -132,7 +165,10 @@ const RegionsList = ({ wavesurfer }) => {
                     </svg>
                   </button>
                   <button 
-                    onClick={() => deleteRegion(region.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteRegion(region.id);
+                    }}
                     className="text-red-500 hover:text-red-700 p-1"
                     title="Delete region"
                   >

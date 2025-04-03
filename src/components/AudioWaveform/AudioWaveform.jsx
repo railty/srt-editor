@@ -3,10 +3,131 @@ import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions';
 import TimelinePlugin from 'wavesurfer.js/dist/plugins/timeline';
 import useAudioStore from '../../stores/audioStore';
+import useAppStore from '../../store/useAppStore';
 import RegionsList from './RegionsList';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
 import PlaybackSpeed from './PlaybackSpeed';
 import { setupAudioKeyboardShortcuts } from '../../utils/keyboardShortcuts';
+
+// Helper function to parse SRT files with speaker detection
+const parseSRTWithSpeakers = (srtContent) => {
+  if (!srtContent) return [];
+
+  // Split the content by double newline to get individual subtitle entries
+  const entries = srtContent.split(/\r?\n\r?\n/);
+  const subtitles = [];
+
+  // Try to detect the speaker pattern
+  let speakerPattern = null;
+  
+  // Check the first few entries to detect the pattern
+  for (let i = 0; i < Math.min(5, entries.length); i++) {
+    const entry = entries[i];
+    if (!entry.trim()) continue;
+    
+    const lines = entry.split(/\r?\n/);
+    if (lines.length < 3) continue;
+    
+    // Try different patterns
+    const text = lines.slice(2).join("\n");
+    
+    // Pattern 1: "Speaker X:"
+    if (text.match(/^Speaker\s+\d+:/)) {
+      speakerPattern = "prefix";
+      break;
+    }
+    
+    // Pattern 2: "[Speaker X]"
+    if (text.match(/^\[Speaker\s+\d+\]/)) {
+      speakerPattern = "brackets";
+      break;
+    }
+    
+    // Pattern 3: Simply the number at the beginning
+    if (text.match(/^(\d+):/)) {
+      speakerPattern = "number";
+      break;
+    }
+  }
+
+  // Parse each entry
+  for (const entry of entries) {
+    // Skip empty entries
+    if (!entry.trim()) continue;
+
+    // Split each entry into lines
+    const lines = entry.split(/\r?\n/);
+    
+    // We need at least 3 lines (index, time, and text)
+    if (lines.length < 3) continue;
+
+    // Extract info (skip the first line which is just the index)
+    const timeString = lines[1];
+    
+    // Extract start and end times
+    const timeMatch = timeString.match(/(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})/);
+    if (!timeMatch) continue;
+    
+    const startTimeStr = timeMatch[1];
+    const endTimeStr = timeMatch[2];
+    
+    // Convert the time format to seconds
+    const startTime = timeToSeconds(startTimeStr);
+    const endTime = timeToSeconds(endTimeStr);
+
+    // Get subtitle text (could be multiple lines)
+    const text = lines.slice(2).join("\n");
+    
+    // Determine the speaker
+    let speaker = null;
+    
+    if (speakerPattern === "prefix") {
+      const match = text.match(/^Speaker\s+(\d+):/);
+      if (match) {
+        speaker = parseInt(match[1], 10);
+      }
+    } else if (speakerPattern === "brackets") {
+      const match = text.match(/^\[Speaker\s+(\d+)\]/);
+      if (match) {
+        speaker = parseInt(match[1], 10);
+      }
+    } else if (speakerPattern === "number") {
+      const match = text.match(/^(\d+):/);
+      if (match) {
+        speaker = parseInt(match[1], 10);
+      }
+    }
+    
+    // If we couldn't determine the speaker, default to 0
+    if (speaker === null) {
+      // Try a more generic approach - look for any number followed by a colon
+      const genericMatch = text.match(/^(\d+):/);
+      if (genericMatch) {
+        speaker = parseInt(genericMatch[1], 10);
+      } else {
+        speaker = 0;
+      }
+    }
+
+    subtitles.push({
+      startTime,
+      endTime,
+      text,
+      speaker
+    });
+  }
+
+  return subtitles;
+};
+
+// Helper function to convert SRT time format (HH:MM:SS,mmm) to seconds
+const timeToSeconds = (timeStr) => {
+  const [time, millisStr] = timeStr.split(',');
+  const [hours, minutes, seconds] = time.split(':').map(Number);
+  const millis = parseInt(millisStr, 10);
+  
+  return hours * 3600 + minutes * 60 + seconds + (millis / 1000);
+};
 
 const AudioWaveform = ({ audioURL }) => {
   const waveformRef = useRef(null);
@@ -14,14 +135,119 @@ const AudioWaveform = ({ audioURL }) => {
   const regionsPluginRef = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
   
+  // Get the subtitle file from the app store
+  const { subtitleFile } = useAppStore();
+  
   // Get state and actions from our Zustand store
   const {
     zoom, setZoom,
     isPlaying, setIsPlaying,
     duration, setDuration,
     currentTime, setCurrentTime,
-    addRegion, removeRegion, clearRegions
+    addRegion, removeRegion, clearRegions,
+    selectedRegionId, selectRegion
   } = useAudioStore();
+
+  // Function to create regions from SRT file with speaker detection
+  const createRegionsFromSRT = () => {
+    if (!subtitleFile || !subtitleFile.textContent || !wavesurferRef.current || !regionsPluginRef.current) {
+      return;
+    }
+    
+    const regions = parseSRTWithSpeakers(subtitleFile.textContent);
+    let regionCounter = 0;
+    
+    // Colors for different speakers
+    const speakerColors = {
+      0: [
+        'rgba(255, 99, 132, 0.5)',  // red
+        'rgba(255, 159, 64, 0.5)',  // orange
+        'rgba(255, 206, 86, 0.5)',  // yellow
+        'rgba(75, 192, 192, 0.5)',  // teal
+      ],
+      1: [
+        'rgba(54, 162, 235, 0.5)',  // blue
+        'rgba(153, 102, 255, 0.5)', // purple
+        'rgba(46, 204, 113, 0.5)',  // green
+        'rgba(236, 64, 122, 0.5)',  // pink
+      ]
+    };
+    
+    // Add each subtitle as a region
+    regions.forEach((subtitle) => {
+      try {
+        regionCounter++;
+        // Extract just the text without the speaker prefix
+        let displayText = subtitle.text;
+        if (displayText.match(/^Speaker\s+\d+:/)) {
+          displayText = displayText.replace(/^Speaker\s+\d+:\s*/, '');
+        } else if (displayText.match(/^\[Speaker\s+\d+\]/)) {
+          displayText = displayText.replace(/^\[Speaker\s+\d+\]\s*/, '');
+        } else if (displayText.match(/^\d+:/)) {
+          displayText = displayText.replace(/^\d+:\s*/, '');
+        }
+        
+        const regionLabel = `${regionCounter}: ${displayText.substring(0, 20)}${displayText.length > 20 ? '...' : ''}`;
+        
+        // Determine which colors to use based on speaker
+        const speakerIdx = subtitle.speaker % 2; // Ensure we only use 0 or 1
+        const colorSet = speakerColors[speakerIdx] || speakerColors[0];
+        const color = colorSet[Math.floor(Math.random() * colorSet.length)];
+        
+        // Calculate vertical position based on speaker
+        // Speaker 0 on top half, Speaker 1 on bottom half
+        let top, height;
+        
+        if (speakerIdx === 0) {
+          // Speaker 0: Top half
+          top = 0;
+          height = 50; // 50% of the height
+        } else {
+          // Speaker 1: Bottom half
+          top = 50;
+          height = 50; // 50% of the height
+        }
+        
+        // Create the region with custom positioning
+        const region = regionsPluginRef.current.addRegion({
+          start: subtitle.startTime,
+          end: subtitle.endTime,
+          color: color,
+          drag: true,
+          resize: true,
+          // Custom options for positioning
+          customAttributes: {
+            speaker: subtitle.speaker
+          }
+        });
+        
+        // Manually set the region's position after it's created
+        if (region && region.element) {
+          // Add the label as a data attribute
+          region.element.setAttribute('data-label', regionLabel);
+          
+          // Apply CSS to position the region vertically
+          region.element.style.top = `${top}%`;
+          region.element.style.height = `${height}%`;
+          
+          // Add speaker class for styling
+          region.element.classList.add(`speaker-${speakerIdx}`);
+        }
+        
+        // Add the region to our Zustand store with speaker info
+        addRegion({
+          id: region.id,
+          start: subtitle.startTime,
+          end: subtitle.endTime,
+          color: color,
+          label: regionLabel,
+          speaker: subtitle.speaker
+        });
+      } catch (error) {
+        console.error('Error creating region from SRT:', error);
+      }
+    });
+  };
 
   // Initialize WaveSurfer when component mounts
   useEffect(() => {
@@ -50,15 +276,24 @@ const AudioWaveform = ({ audioURL }) => {
               pointer-events: none;
               z-index: 2;
             }
+            .wavesurfer-region.speaker-0 {
+              top: 0 !important;
+              height: 50% !important;
+            }
+            .wavesurfer-region.speaker-1 {
+              top: 50% !important;
+              height: 50% !important;
+            }
+            .wavesurfer-region.region-selected {
+              box-shadow: 0 0 0 2px #ffff00 !important;
+              border: 2px solid #ffff00 !important;
+              z-index: 5 !important;
+            }
           `;
           document.head.appendChild(style);
           
-          // Create the regions plugin first
-          const regionsPlugin = RegionsPlugin.create({
-            dragSelection: {
-              color: 'rgba(54, 162, 235, 0.3)',
-            },
-          });
+          // Create the regions plugin first - without dragSelection to disable drag functionality
+          const regionsPlugin = RegionsPlugin.create();
           
           // Store reference to regions plugin
           regionsPluginRef.current = regionsPlugin;
@@ -100,16 +335,9 @@ const AudioWaveform = ({ audioURL }) => {
             setDuration(wavesurfer.getDuration());
             setIsLoading(false);
             
-            // Explicitly enable drag selection
-            if (regionsPlugin) {
-              try {
-                regionsPlugin.enableDragSelection({
-                  color: 'rgba(54, 162, 235, 0.5)',
-                });
-              } catch (error) {
-                console.error('Error enabling drag selection:', error);
-              }
-            }
+            // We're disabling drag selection as requested
+            // Instead, create regions from SRT file
+            createRegionsFromSRT();
           });
 
           wavesurfer.on('play', () => {
@@ -132,6 +360,9 @@ const AudioWaveform = ({ audioURL }) => {
           if (regionsPlugin) {
             // Regions events
             regionsPlugin.on('region-created', (region) => {
+              // Note: We're not handling manual region creation anymore,
+              // but keeping the event handler in case it's needed in the future
+              
               // Increment counter for each new region
               regionCounter++;
               const regionLabel = `Region ${regionCounter}`;
@@ -176,7 +407,26 @@ const AudioWaveform = ({ audioURL }) => {
             });
             
             regionsPlugin.on('region-clicked', (region) => {
-              region.play();
+              // Instead of playing, select the region
+              selectRegion(region.id);
+              
+              // Apply highlighting to the selected region
+              if (regionsPlugin && regionsPlugin.getRegions) {
+                const regions = regionsPlugin.getRegions();
+                
+                // Reset all regions to their original colors
+                regions.forEach(r => {
+                  if (r.element && r.id !== region.id) {
+                    // Remove selection class if it exists
+                    r.element.classList.remove('region-selected');
+                  }
+                });
+                
+                // Add selection style to clicked region
+                if (region.element) {
+                  region.element.classList.add('region-selected');
+                }
+              }
             });
             
             regionsPlugin.on('region-removed', (region) => {
@@ -213,8 +463,32 @@ const AudioWaveform = ({ audioURL }) => {
         }
       }
     };
-  }, [audioURL, addRegion, removeRegion, setDuration, setIsPlaying, setCurrentTime]);
+  }, [audioURL, addRegion, removeRegion, setDuration, setIsPlaying, setCurrentTime, subtitleFile]);
 
+  // Apply selection styling when selectedRegionId changes
+  useEffect(() => {
+    if (regionsPluginRef.current && selectedRegionId && !isLoading) {
+      try {
+        const regions = regionsPluginRef.current.getRegions();
+        
+        // Reset all regions
+        regions.forEach(region => {
+          if (region.element) {
+            region.element.classList.remove('region-selected');
+          }
+        });
+        
+        // Find and highlight the selected region
+        const selectedRegion = regions.find(r => r.id === selectedRegionId);
+        if (selectedRegion && selectedRegion.element) {
+          selectedRegion.element.classList.add('region-selected');
+        }
+      } catch (error) {
+        console.warn('Error updating region selection:', error);
+      }
+    }
+  }, [selectedRegionId, isLoading]);
+  
   // Update zoom when it changes
   useEffect(() => {
     if (wavesurferRef.current && !isLoading) {
@@ -335,6 +609,19 @@ const AudioWaveform = ({ audioURL }) => {
           <div className="font-medium">Audio Waveform</div>
           <KeyboardShortcutsHelp />
         </div>
+        
+        {/* Speaker legend */}
+        <div className="flex items-center space-x-4 mb-2 text-xs text-gray-700">
+          <div className="flex items-center">
+            <div className="w-4 h-4 mr-1 bg-red-300 rounded-sm"></div>
+            <span>Speaker 0 (Top)</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-4 h-4 mr-1 bg-blue-300 rounded-sm"></div>
+            <span>Speaker 1 (Bottom)</span>
+          </div>
+        </div>
+        
         <div className="relative">
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-50 z-10">
@@ -347,6 +634,10 @@ const AudioWaveform = ({ audioURL }) => {
               </div>
             </div>
           )}
+          
+          {/* Horizontal divider line to separate speakers */}
+          <div className="absolute top-1/2 left-0 right-0 border-t border-gray-300 z-10 pointer-events-none"></div>
+          
           <div 
             ref={waveformRef} 
             className="w-full bg-gray-50 rounded-md"
@@ -354,7 +645,6 @@ const AudioWaveform = ({ audioURL }) => {
         </div>
         <div id="timeline" className="w-full h-10"></div>
         <div className="text-xs text-gray-500 mt-1">
-          <p>Click and drag on waveform to create regions.</p>
           <p>Click a region to play it. Drag region edges to resize.</p>
         </div>
       </div>

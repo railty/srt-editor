@@ -9,6 +9,7 @@ const useAudioStore = create((set) => ({
   
   // Regions
   regions: [],
+  selectedRegionId: null,
   
   // Actions
   setIsPlaying: (isPlaying) => set({ isPlaying }),
@@ -26,9 +27,14 @@ const useAudioStore = create((set) => ({
     )
   })),
   removeRegion: (id) => set((state) => ({
-    regions: state.regions.filter((region) => region.id !== id)
+    regions: state.regions.filter((region) => region.id !== id),
+    // If the deleted region was selected, clear the selection
+    selectedRegionId: state.selectedRegionId === id ? null : state.selectedRegionId
   })),
-  clearRegions: () => set({ regions: [] }),
+  clearRegions: () => set({ regions: [], selectedRegionId: null }),
+  
+  // Select a region
+  selectRegion: (id) => set({ selectedRegionId: id }),
 }));
 
 export default useAudioStore;
