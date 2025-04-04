@@ -4,7 +4,7 @@ import About from './pages/About';
 import Settings from './pages/Settings';
 import Home from './pages/Home';
 import Upload from './pages/Upload';
-import useAppStore from './store/useAppStore';
+import { useAppStore } from './stores';
 
 function App() {
   const { currentPage, setCurrentPage, status, setStatus } = useAppStore();
