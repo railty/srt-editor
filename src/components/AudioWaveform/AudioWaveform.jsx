@@ -114,8 +114,8 @@ const AudioWaveform = ({ audioURL }) => {
           start: subtitle.startTime,
           end: subtitle.endTime,
           color: color,
-          drag: true,
-          resize: true,
+          drag: false, // Disable dragging the region's center
+          resize: false, // Disable resize by default - will be enabled for selected region via CSS
           // Custom options for positioning
           customAttributes: {
             speaker: subtitle.speaker,

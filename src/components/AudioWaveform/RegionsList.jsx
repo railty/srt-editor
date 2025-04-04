@@ -77,7 +77,10 @@ const RegionsList = ({ wavesurfer }) => {
             if (prevRegion) {
               // Restore original color
               if (prevRegion._originalColor) {
-                prevRegion.setOptions({ color: prevRegion._originalColor });
+                prevRegion.setOptions({ 
+                  color: prevRegion._originalColor,
+                  resize: false // Disable resize for previously selected region
+                });
               }
               
               // Remove selection class
@@ -95,9 +98,12 @@ const RegionsList = ({ wavesurfer }) => {
               newRegion._originalColor = newRegion.color;
             }
             
-            // Apply inverted color
+            // Apply inverted color and enable resize
             const invertedColor = getInvertedColor(newRegion._originalColor);
-            newRegion.setOptions({ color: invertedColor });
+            newRegion.setOptions({ 
+              color: invertedColor,
+              resize: true // Enable resize only for selected region
+            });
             
             // Force a redraw of the waveform if possible
             if (wavesurfer.drawer && typeof wavesurfer.drawer.drawBuffer === 'function') {

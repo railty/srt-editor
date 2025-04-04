@@ -89,6 +89,23 @@ const WaveformDisplay = ({
               border: 2px solid #ff0000 !important;
               z-index: 10 !important;
             }
+            /* Disable dragging the region center */
+            .wavesurfer-region > .resize-center {
+              pointer-events: none !important;
+            }
+            /* Disable resize handles for non-selected regions */
+            .wavesurfer-region > .resize-w,
+            .wavesurfer-region > .resize-e {
+              pointer-events: none !important;
+            }
+            /* Only enable resize handles for selected regions */
+            .wavesurfer-region.region-selected > .resize-w,
+            .wavesurfer-region.region-selected > .resize-e {
+              pointer-events: auto !important;
+              background-color: rgba(255, 255, 0, 0.8) !important;
+              width: 6px !important;
+              cursor: col-resize !important;
+            }
           `;
           document.head.appendChild(style);
           

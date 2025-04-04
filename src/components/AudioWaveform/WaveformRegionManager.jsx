@@ -60,9 +60,12 @@ const WaveformRegionManager = ({
             selectedRegion.element.classList.add('region-selected');
           }
           
-          // Apply inverted color
+          // Apply inverted color and enable resize
           const invertedColor = getInvertedColor(selectedRegion._originalColor);
-          selectedRegion.setOptions({ color: invertedColor });
+          selectedRegion.setOptions({ 
+            color: invertedColor,
+            resize: true // Enable resize for selected region
+          });
           
           // Force a redraw of the waveform
           if (wavesurferRef.current.drawer && typeof wavesurferRef.current.drawer.drawBuffer === 'function') {
@@ -70,6 +73,22 @@ const WaveformRegionManager = ({
           }
         }
       }
+      
+      // Make sure non-selected regions have resize disabled
+      regions.forEach(region => {
+        if (region.id !== selectedRegionId) {
+          region.setOptions({ resize: false });
+        }
+      });
+      
+      // Prevent region dragging
+      const handleRegionDragStart = (region, e) => {
+        // Prevent dragging the region as a whole
+        // This is a backup measure in case 'drag: false' doesn't fully work
+        e.stopPropagation();
+        e.preventDefault();
+        return false;
+      };
       
       // Region click event
       const handleRegionClick = (region, e) => {
@@ -96,7 +115,10 @@ const WaveformRegionManager = ({
           if (prevRegion) {
             // Restore original color if available
             if (prevRegion._originalColor) {
-              prevRegion.setOptions({ color: prevRegion._originalColor });
+              prevRegion.setOptions({ 
+                color: prevRegion._originalColor,
+                resize: false // Disable resize for previously selected region
+              });
             }
             
             // Remove selection class
@@ -111,9 +133,12 @@ const WaveformRegionManager = ({
           region._originalColor = region.color;
         }
         
-        // Apply inverted color to the newly selected region
+        // Apply inverted color to the newly selected region and enable resize
         const invertedColor = getInvertedColor(region._originalColor);
-        region.setOptions({ color: invertedColor });
+        region.setOptions({ 
+          color: invertedColor,
+          resize: true // Enable resize only for selected region 
+        });
         
         // Force a redraw of the waveform
         if (wavesurferRef.current.drawer && typeof wavesurferRef.current.drawer.drawBuffer === 'function') {
@@ -141,6 +166,7 @@ const WaveformRegionManager = ({
       // Add event listeners
       regionsPlugin.on('region-clicked', handleRegionClick);
       regionsPlugin.on('region-removed', handleRegionRemoved);
+      regionsPlugin.on('region-drag', handleRegionDragStart); // Prevent dragging
       
       // Set up click handler on waveform to maintain default behavior for clicks outside regions
       const waveformContainer = wavesurferRef.current.container;
@@ -159,6 +185,7 @@ const WaveformRegionManager = ({
           // Clean up events
           regionsPlugin.un('region-clicked', handleRegionClick);
           regionsPlugin.un('region-removed', handleRegionRemoved);
+          regionsPlugin.un('region-drag', handleRegionDragStart);
           
           // Clean up waveform click handler
           const waveformContainer = wavesurferRef.current?.container;
