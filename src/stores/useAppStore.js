@@ -1,6 +1,106 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
+// Custom IndexedDB storage adapter for Zustand
+const indexedDBStorage = {
+  // Database configuration
+  dbName: 'srt-editor-db',
+  storeName: 'store',
+  version: 1,
+
+  // Get the IndexedDB database instance
+  getDB: () => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(indexedDBStorage.dbName, indexedDBStorage.version);
+      
+      request.onerror = (event) => {
+        console.error('IndexedDB error:', event.target.error);
+        reject(event.target.error);
+      };
+      
+      request.onsuccess = (event) => {
+        resolve(event.target.result);
+      };
+      
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        // Create object store if it doesn't exist
+        if (!db.objectStoreNames.contains(indexedDBStorage.storeName)) {
+          db.createObjectStore(indexedDBStorage.storeName);
+        }
+      };
+    });
+  },
+
+  // Implementation of the required storage methods for Zustand
+  getItem: async (key) => {
+    try {
+      const db = await indexedDBStorage.getDB();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(indexedDBStorage.storeName, 'readonly');
+        const store = transaction.objectStore(indexedDBStorage.storeName);
+        const request = store.get(key);
+        
+        request.onerror = (event) => {
+          console.error('Error getting item:', event.target.error);
+          reject(event.target.error);
+        };
+        
+        request.onsuccess = (event) => {
+          resolve(event.target.result);
+        };
+      });
+    } catch (error) {
+      console.error('Failed to get item from IndexedDB:', error);
+      return null;
+    }
+  },
+  
+  setItem: async (key, value) => {
+    try {
+      const db = await indexedDBStorage.getDB();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(indexedDBStorage.storeName, 'readwrite');
+        const store = transaction.objectStore(indexedDBStorage.storeName);
+        const request = store.put(value, key);
+        
+        request.onerror = (event) => {
+          console.error('Error setting item:', event.target.error);
+          reject(event.target.error);
+        };
+        
+        request.onsuccess = (event) => {
+          resolve();
+        };
+      });
+    } catch (error) {
+      console.error('Failed to save item to IndexedDB:', error);
+    }
+  },
+  
+  removeItem: async (key) => {
+    try {
+      const db = await indexedDBStorage.getDB();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(indexedDBStorage.storeName, 'readwrite');
+        const store = transaction.objectStore(indexedDBStorage.storeName);
+        const request = store.delete(key);
+        
+        request.onerror = (event) => {
+          console.error('Error removing item:', event.target.error);
+          reject(event.target.error);
+        };
+        
+        request.onsuccess = (event) => {
+          resolve();
+        };
+      });
+    } catch (error) {
+      console.error('Failed to remove item from IndexedDB:', error);
+    }
+  }
+};
+
 const useAppStore = create(
   persist(
     (set) => ({
@@ -60,8 +160,8 @@ const useAppStore = create(
       })
     }),
     {
-      name: 'srt-editor-storage', // unique name for the storage
-      storage: createJSONStorage(() => localStorage),
+      name: 'srt-editor-storage', // unique name for the storage key
+      storage: createJSONStorage(() => indexedDBStorage),
       partialize: (state) => ({
         // Only persist these states
         audioFile: state.audioFile,
