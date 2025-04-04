@@ -297,13 +297,13 @@ const AudioWaveform = ({ audioURL }) => {
           text: regionData.text,
           displayText: regionData.displayText
         };
-        console.log("Adding region to store from SRT:", regionToAdd.id, regionToAdd.label);
+        //console.log("Adding region to store from SRT:", regionToAdd.id, regionToAdd.label);
         addRegion(regionToAdd);
         
         // Verify the region was added
         setTimeout(() => {
           const { regions } = useAudioStore.getState();
-          console.log("Current regions after add:", regions.length);
+          //console.log("Current regions after add:", regions.length);
         }, 100);
       } catch (error) {
         console.error('Error creating region from SRT:', error);

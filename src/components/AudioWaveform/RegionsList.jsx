@@ -17,14 +17,11 @@ const RegionsList = ({ wavesurfer }) => {
   
   // Debug: Log the regions data with more details for troubleshooting
   React.useEffect(() => {
-    console.log("RegionsList - regions count:", regions?.length || 0);
+    //console.log("RegionsList - regions count:", regions?.length || 0);
     
     // Log detailed info about the first few regions to help debugging
     if (regions && regions.length > 0) {
-      console.log("RegionsList - sample region details:", 
-        regions.slice(0, Math.min(3, regions.length))
-          .map(r => ({ id: r.id, start: r.start, end: r.end }))
-      );
+      //console.log("RegionsList - sample region details:", regions.slice(0, Math.min(3, regions.length)).map(r => ({ id: r.id, start: r.start, end: r.end })));
     }
   }, [regions]);
   
@@ -307,7 +304,7 @@ const RegionsList = ({ wavesurfer }) => {
   };
 
   // Check if regions exist
-  console.log("RegionsList render - regions:", regions ? `count: ${regions.length}` : "null");
+  //console.log("RegionsList render - regions:", regions ? `count: ${regions.length}` : "null");
   
   if (!regions || regions.length === 0) {
     console.log("RegionsList showing empty state message");

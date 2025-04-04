@@ -111,7 +111,7 @@ export const createIndexedDBStorage = (storeName) => {
             
             // Add transaction complete event for better reliability
             transaction.oncomplete = (event) => {
-              console.log(`IndexedDB transaction completed successfully for key ${key}`);
+              //console.log(`IndexedDB transaction completed successfully for key ${key}`);
               db.close();
               resolve();
             };
@@ -130,7 +130,7 @@ export const createIndexedDBStorage = (storeName) => {
             
             request.onsuccess = (event) => {
               // Just log success, let transaction.oncomplete close the DB
-              console.log(`IndexedDB item set successfully for key ${key}`);
+              //console.log(`IndexedDB item set successfully for key ${key}`);
             };
           } catch (error) {
             console.error('Transaction error in setItem:', error);

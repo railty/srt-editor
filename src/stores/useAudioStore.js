@@ -28,13 +28,13 @@ const useAudioStore = create(
       // Region actions
       addRegion: (region) => set((state) => {
         // Debug: Log the region being added
-        console.log("Adding region to store:", region.id, "Current count:", state.regions.length);
+        //console.log("Adding region to store:", region.id, "Current count:", state.regions.length);
         
         // Check if a region with this ID already exists
         const exists = state.regions.some(r => r.id === region.id);
         if (exists) {
           // Region already exists, don't add it again
-          console.log("Region already exists, skipping:", region.id);
+          //console.log("Region already exists, skipping:", region.id);
           return { regions: state.regions };
         }
         // Add the new region
@@ -64,7 +64,7 @@ const useAudioStore = create(
       
       // SRT import/export functions
       importSrt: (srtContent) => {
-        console.log("importSrt called with content:", srtContent ? `length: ${srtContent.length}` : "No content");
+        //console.log("importSrt called with content:", srtContent ? `length: ${srtContent.length}` : "No content");
         if (!srtContent) return [];
         
         // Parse the SRT content
@@ -160,14 +160,11 @@ const useAudioStore = create(
       name: 'srt-editor-audio-storage', // unique name for the storage key
       storage: audioStorage,
       partialize: (state) => {
-        console.log("Persisting audio store state - regions count:", state.regions.length);
+        //console.log("Persisting audio store state - regions count:", state.regions.length);
         
         // Add debugging for the first few regions
         if (state.regions.length > 0) {
-          console.log("Sample region data being persisted:", 
-            state.regions.slice(0, Math.min(3, state.regions.length))
-              .map(r => ({ id: r.id, start: r.start, end: r.end }))
-          );
+          //console.log("Sample region data being persisted:", state.regions.slice(0, Math.min(3, state.regions.length)).map(r => ({ id: r.id, start: r.start, end: r.end })));
         }
         
         return {
