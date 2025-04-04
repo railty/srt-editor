@@ -48,6 +48,7 @@ export const formatTimeWithMs = (time) => {
  * @returns {Array} - Array of subtitle objects
  */
 export const parseSRTWithSpeakers = (srtContent) => {
+  console.log("Parsing SRT content:", srtContent ? `${srtContent.substring(0, 100)}... (${srtContent.length} bytes)` : "No content");
   if (!srtContent) return [];
 
   // Split the content by double newline to get individual subtitle entries

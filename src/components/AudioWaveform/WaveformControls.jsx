@@ -31,6 +31,8 @@ const WaveformControls = ({ wavesurfer, isLoading }) => {
 
   // Handle zoom in (double the current zoom)
   const handleZoomIn = () => {
+    // We just need to update the zoom state
+    // All the redrawing, region refresh logic is handled in the AudioWaveform component
     const currentIndex = getCurrentZoomIndex(zoom);
     const newIndex = Math.min(currentIndex + 1, ZOOM_LEVELS.length - 1);
     setZoom(ZOOM_LEVELS[newIndex]);

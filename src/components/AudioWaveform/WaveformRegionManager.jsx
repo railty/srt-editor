@@ -25,6 +25,38 @@ const WaveformRegionManager = ({
     if (isLoading || !regionsPluginRef.current || !wavesurferRef.current) {
       return;
     }
+    
+    // Add a handler for the wavesurfer zoom event
+    const handleZoom = () => {
+      // Make sure all regions are properly positioned
+      try {
+        const regions = regionsPluginRef.current.getRegions();
+        regions.forEach(region => {
+          if (region.element && region.customAttributes) {
+            const speakerIdx = region.customAttributes.speaker % 2 || 0;
+            const top = speakerIdx === 0 ? 0 : 50;
+            const height = 50; // 50% of the height
+            
+            // Re-apply styling that might have been lost
+            region.element.style.top = `${top}%`;
+            region.element.style.height = `${height}%`;
+            region.element.classList.add(`speaker-${speakerIdx}`);
+            
+            // Ensure selected regions have proper styling
+            if (region.id === selectedRegionId) {
+              region.element.classList.add('region-selected');
+            } else {
+              region.element.classList.remove('region-selected');
+            }
+          }
+        });
+      } catch (error) {
+        console.warn('Error fixing region positions after zoom:', error);
+      }
+    };
+    
+    // Add zoom event listener
+    wavesurferRef.current.on('zoom', handleZoom);
 
     // Set up region events
     try {
@@ -187,24 +219,18 @@ const WaveformRegionManager = ({
       // Region update-end event (when resize is complete)
       const handleRegionUpdateEnd = (region) => {
         console.log('Region update ended:', region.id, 'Start:', region.start, 'End:', region.end);
-        // Ensure the final state is updated in our store
-        updateRegion(region.id, {
-          start: region.start,
-          end: region.end,
-          modified: true // Mark as modified to keep track of user edits
-        });
         
-        // To ensure the changes are persisted immediately, manually trigger persistence
-        // This helps guarantee the changes are saved even if the user refreshes quickly
-        if (wavesurferRef.current) {
-          try {
-            // Force a state update to trigger persistence middleware
-            const currentStore = useAudioStore.getState();
-            currentStore._persist && currentStore._persist.rehydrate && currentStore._persist.rehydrate();
-          } catch (error) {
-            console.warn('Error triggering manual persistence:', error);
-          }
-        }
+        // Use a small timeout to ensure we're not conflicting with other operations
+        setTimeout(() => {
+          // Update the region in our store
+          updateRegion(region.id, {
+            start: region.start,
+            end: region.end,
+            modified: true // Mark as modified to keep track of user edits
+          });
+          
+          console.log(`Region ${region.id} resize completed with end time:`, region.end);
+        }, 50);
       };
       
       // Add event listeners
@@ -240,8 +266,13 @@ const WaveformRegionManager = ({
           if (waveformContainer) {
             waveformContainer.removeEventListener('click', () => {});
           }
+          
+          // Clean up zoom event listener
+          if (wavesurferRef.current) {
+            wavesurferRef.current.un('zoom', handleZoom);
+          }
         } catch (error) {
-          console.warn('Error removing region event listeners:', error);
+          console.warn('Error removing event listeners:', error);
         }
       };
     } catch (error) {

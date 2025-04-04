@@ -14,7 +14,7 @@ const Layout = ({ children }) => {
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
-      <header className="flex justify-between items-center bg-blue-600 text-white p-4">
+      <header className="flex justify-between items-center bg-blue-600 text-white p-1">
         <div className="relative">
           <button 
             onClick={() => setIsAppMenuOpen(!isAppMenuOpen)}
@@ -123,7 +123,7 @@ const Layout = ({ children }) => {
       </header>
       
       {/* Main Content Area with Overflow Scrolling */}
-      <main className="flex-1 overflow-auto p-4 bg-gray-50">
+      <main className="flex-1 overflow-auto p-1 bg-gray-50">
         {children}
       </main>
       

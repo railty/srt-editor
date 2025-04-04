@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions';
 import TimelinePlugin from 'wavesurfer.js/dist/plugins/timeline';
-import { useAudioStore } from '../../stores';
+import useAudioStore from '../../stores/useAudioStore';
 import { formatTime } from '../../utils/srt/SrtParser';
 
 /**
@@ -155,7 +155,26 @@ const WaveformDisplay = ({
             
             // Call the callback when wavesurfer is ready
             if (typeof onRegionsReady === 'function') {
+              console.log("WaveformDisplay ready - calling onRegionsReady callback");
               onRegionsReady();
+              
+              // Double-check after a delay that regions are loaded
+              // This helps with race conditions
+              setTimeout(() => {
+                try {
+                  const { regions } = useAudioStore.getState();
+                  const regionsInWave = regionsPlugin.getRegions().length;
+                  console.log(`After ready check: Store regions: ${regions.length}, Wavesurfer regions: ${regionsInWave}`);
+                  
+                  // If we have regions in store but none in wavesurfer, call onRegionsReady again
+                  if (regions.length > 0 && regionsInWave === 0) {
+                    console.log("Auto-fixing regions after wavesurfer ready");
+                    onRegionsReady();
+                  }
+                } catch (error) {
+                  console.error("Error in post-ready regions check:", error);
+                }
+              }, 500);
             }
           });
 

@@ -27,34 +27,30 @@ const useAudioStore = create(
       
       // Region actions
       addRegion: (region) => set((state) => {
+        // Debug: Log the region being added
+        console.log("Adding region to store:", region.id, "Current count:", state.regions.length);
+        
         // Check if a region with this ID already exists
         const exists = state.regions.some(r => r.id === region.id);
         if (exists) {
           // Region already exists, don't add it again
+          console.log("Region already exists, skipping:", region.id);
           return { regions: state.regions };
         }
         // Add the new region
+        console.log("Adding new region:", region.id);
         return { regions: [...state.regions, region] };
       }),
       updateRegion: (id, updatedRegion) => {
-        // First update the state
+        // Update the state and let Zustand handle persistence automatically
         set((state) => ({
           regions: state.regions.map((region) => 
             region.id === id ? { ...region, ...updatedRegion } : region
           )
         }));
         
-        // Then ensure persistence is triggered
-        try {
-          // Get the current state
-          const state = get();
-          // If we have access to persist methods, force a persist of current state
-          if (state._persist?.persist) {
-            state._persist.persist();
-          }
-        } catch (error) {
-          console.warn('Error manually persisting state after region update:', error);
-        }
+        // Log the update for debugging
+        console.log(`Region ${id} updated:`, updatedRegion);
       },
       removeRegion: (id) => set((state) => ({
         regions: state.regions.filter((region) => region.id !== id),
@@ -68,10 +64,21 @@ const useAudioStore = create(
       
       // SRT import/export functions
       importSrt: (srtContent) => {
+        console.log("importSrt called with content:", srtContent ? `length: ${srtContent.length}` : "No content");
         if (!srtContent) return [];
         
-        const regions = [];
+        // Parse the SRT content
         const subtitles = parseSRTWithSpeakers(srtContent);
+        console.log("Parsed subtitles count:", subtitles.length);
+        
+        // If no subtitles were parsed, return an empty array
+        if (!subtitles || subtitles.length === 0) {
+          console.warn("No subtitles parsed from SRT content");
+          return [];
+        }
+        
+        // Convert subtitles to region objects and update the state
+        const regions = [];
         let regionCounter = 0;
         
         // Convert each subtitle to a region data object
@@ -84,8 +91,8 @@ const useAudioStore = create(
           // Get a color based on the speaker
           const color = getSpeakerColor(subtitle.speaker);
           
-          // Add the region data
-          regions.push({
+          // Create the region data
+          const region = {
             id: `srt-region-${regionCounter}`,
             start: subtitle.startTime,
             end: subtitle.endTime,
@@ -95,8 +102,22 @@ const useAudioStore = create(
             text: subtitle.text,
             displayText: subtitle.displayText,
             fromSRT: true
-          });
+          };
+          
+          // Add to local array
+          regions.push(region);
         });
+        
+        // Log results
+        console.log(`Created ${regions.length} regions from SRT content`);
+        
+        // Also update the state directly - this is important!
+        // This ensures regions are properly saved even if the caller doesn't use the return value
+        if (regions.length > 0) {
+          set((state) => ({
+            regions: regions // Replace existing regions with the newly parsed ones
+          }));
+        }
         
         return regions;
       },
@@ -138,11 +159,41 @@ const useAudioStore = create(
     {
       name: 'srt-editor-audio-storage', // unique name for the storage key
       storage: audioStorage,
-      partialize: (state) => ({
-        // Only persist these states
-        regions: state.regions,
-        selectedRegionId: state.selectedRegionId
-      }),
+      partialize: (state) => {
+        console.log("Persisting audio store state - regions count:", state.regions.length);
+        
+        // Add debugging for the first few regions
+        if (state.regions.length > 0) {
+          console.log("Sample region data being persisted:", 
+            state.regions.slice(0, Math.min(3, state.regions.length))
+              .map(r => ({ id: r.id, start: r.start, end: r.end }))
+          );
+        }
+        
+        return {
+          // Only persist these states
+          regions: state.regions,
+          selectedRegionId: state.selectedRegionId
+        };
+      },
+      onRehydrateStorage: (state) => {
+        return (newState, error) => {
+          if (error) {
+            console.error('Error rehydrating audio store:', error);
+          } else {
+            console.log('Audio store successfully rehydrated, regions count:', 
+              newState?.regions?.length || 0);
+            
+            // Log sample of rehydrated regions for debugging
+            if (newState?.regions?.length > 0) {
+              console.log("Sample rehydrated region data:", 
+                newState.regions.slice(0, Math.min(3, newState.regions.length))
+                  .map(r => ({ id: r.id, start: r.start, end: r.end }))
+              );
+            }
+          }
+        };
+      },
     }
   )
 );

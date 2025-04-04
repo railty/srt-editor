@@ -1,3 +1,4 @@
+import React, { useEffect } from 'react';
 import useAppStore from '../stores/useAppStore';
 import { useAudioStore } from '../stores';
 import { AudioFileDisplay, SubtitleFileDisplay } from '../components/FileDisplay';
@@ -5,6 +6,15 @@ import ExportSrtButton from '../components/ExportSrtButton';
 
 const Home = () => {
   const { audioFile, subtitleFile } = useAppStore();
+  const { regions, importSrt } = useAudioStore();
+  
+  // Auto-import SRT data when files are loaded but no regions exist
+  useEffect(() => {
+    if (subtitleFile && subtitleFile.textContent && (!regions || regions.length === 0)) {
+      console.log("Home component detected SRT file but no regions - auto-importing");
+      importSrt(subtitleFile.textContent);
+    }
+  }, [subtitleFile, regions, importSrt]);
 
   return (
     <div className="mx-auto">

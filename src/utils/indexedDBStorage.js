@@ -109,15 +109,28 @@ export const createIndexedDBStorage = (storeName) => {
             const store = transaction.objectStore(indexedDBStorage.objectStoreName);
             const request = store.put(value, key);
             
-            request.onerror = (event) => {
-              console.error('Error setting item:', event.target.error);
+            // Add transaction complete event for better reliability
+            transaction.oncomplete = (event) => {
+              console.log(`IndexedDB transaction completed successfully for key ${key}`);
+              db.close();
+              resolve();
+            };
+            
+            transaction.onerror = (event) => {
+              console.error('Transaction error in setItem:', event.target.error);
               db.close();
               reject(event.target.error);
             };
             
+            request.onerror = (event) => {
+              console.error('Error setting item:', event.target.error);
+              // Don't close DB here, let transaction handlers handle it
+              reject(event.target.error);
+            };
+            
             request.onsuccess = (event) => {
-              db.close();
-              resolve();
+              // Just log success, let transaction.oncomplete close the DB
+              console.log(`IndexedDB item set successfully for key ${key}`);
             };
           } catch (error) {
             console.error('Transaction error in setItem:', error);
@@ -134,6 +147,7 @@ export const createIndexedDBStorage = (storeName) => {
             `${indexedDBStorage.dbName}_fallback_${key}`,
             JSON.stringify(value)
           );
+          console.log(`Fallback to localStorage for key ${key}`);
         } catch (lsError) {
           console.error('Also failed to use localStorage fallback:', lsError);
         }

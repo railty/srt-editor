@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import useAudioStore from '../../stores/useAudioStore';
+import useAppStore from '../../stores/useAppStore';
 import { getInvertedColor } from '../../utils/srt/SrtParser';
 
 // Truncate long text for display
@@ -12,6 +13,34 @@ const truncateText = (text, maxLength = 30) => {
 const RegionsList = ({ wavesurfer }) => {
   // Get regions and selection from store
   const { regions, removeRegion, selectedRegionId, selectRegion, updateRegion } = useAudioStore();
+  const { subtitleFile } = useAppStore();
+  
+  // Debug: Log the regions data with more details for troubleshooting
+  React.useEffect(() => {
+    console.log("RegionsList - regions count:", regions?.length || 0);
+    
+    // Log detailed info about the first few regions to help debugging
+    if (regions && regions.length > 0) {
+      console.log("RegionsList - sample region details:", 
+        regions.slice(0, Math.min(3, regions.length))
+          .map(r => ({ id: r.id, start: r.start, end: r.end }))
+      );
+    }
+  }, [regions]);
+  
+  // Auto reload regions from SRT file if needed
+  useEffect(() => {
+    // Only run this if we have a subtitle file but no regions
+    if (subtitleFile && subtitleFile.textContent && (!regions || regions.length === 0)) {
+      console.log("RegionsList detected SRT file but no regions - auto-importing");
+      try {
+        const { importSrt } = useAudioStore.getState();
+        importSrt(subtitleFile.textContent);
+      } catch (error) {
+        console.error("Error auto-importing SRT in RegionsList:", error);
+      }
+    }
+  }, [subtitleFile, regions]);
 
   // State for editing labels
   const [editingRegionId, setEditingRegionId] = useState(null);
@@ -277,10 +306,40 @@ const RegionsList = ({ wavesurfer }) => {
     }
   };
 
+  // Check if regions exist
+  console.log("RegionsList render - regions:", regions ? `count: ${regions.length}` : "null");
+  
   if (!regions || regions.length === 0) {
+    console.log("RegionsList showing empty state message");
     return (
-      <div className="mt-4 text-sm text-gray-500 italic">
-        No regions available. When you load an SRT file, regions will be created automatically.
+      <div className="mt-4 space-y-2">
+        <h4 className="font-medium mb-2">Subtitle Regions</h4>
+        <div className="text-sm text-gray-500 italic">
+          No regions available. When you load an SRT file, regions will be created automatically.
+        </div>
+        {subtitleFile && subtitleFile.textContent && (
+          <div className="text-xs text-gray-400">
+            Regions should load automatically. If they don't appear, you can try
+            <button
+              className="ml-1 text-blue-500 hover:text-blue-700 underline"
+              onClick={() => {
+                // Trigger a re-import of the SRT if we have an SRT file but no regions
+                try {
+                  console.log("Manually triggering SRT import");
+                  const { importSrt } = useAudioStore.getState();
+                  if (subtitleFile && subtitleFile.textContent) {
+                    importSrt(subtitleFile.textContent);
+                  }
+                } catch (error) {
+                  console.error("Error triggering SRT import:", error);
+                }
+              }}
+            >
+              reloading regions
+            </button>
+            from the SRT file.
+          </div>
+        )}
       </div>
     );
   }
