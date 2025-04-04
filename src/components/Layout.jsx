@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import useAppStore from '../store/useAppStore';
+import useAppStore from '../stores/useAppStore';
 
 const Layout = ({ children }) => {
   const { currentPage, setCurrentPage, status } = useAppStore();

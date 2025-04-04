@@ -18,9 +18,16 @@ const useAudioStore = create((set) => ({
   setZoom: (zoom) => set({ zoom }),
   
   // Region actions
-  addRegion: (region) => set((state) => ({ 
-    regions: [...state.regions, region] 
-  })),
+  addRegion: (region) => set((state) => {
+    // Check if a region with this ID already exists
+    const exists = state.regions.some(r => r.id === region.id);
+    if (exists) {
+      // Region already exists, don't add it again
+      return { regions: state.regions };
+    }
+    // Add the new region
+    return { regions: [...state.regions, region] };
+  }),
   updateRegion: (id, updatedRegion) => set((state) => ({
     regions: state.regions.map((region) => 
       region.id === id ? { ...region, ...updatedRegion } : region

@@ -1,4 +1,4 @@
-import useAppStore from '../store/useAppStore';
+import useAppStore from '../stores/useAppStore';
 import { AudioFileDisplay, SubtitleFileDisplay } from '../components/FileDisplay';
 
 const Home = () => {

@@ -216,7 +216,8 @@ const AudioWaveform = ({ audioURL }) => {
           resize: true,
           // Custom options for positioning
           customAttributes: {
-            speaker: subtitle.speaker
+            speaker: subtitle.speaker,
+            fromSRT: true // Mark this region as created from SRT to avoid duplication
           }
         });
         
@@ -252,6 +253,7 @@ const AudioWaveform = ({ audioURL }) => {
   useEffect(() => {
     let wavesurfer = null;
     let regionCounter = 0;
+    let isComponentMounted = true; // Flag to track if component is still mounted
     
     const initWaveSurfer = async () => {
       setIsLoading(true);
@@ -331,6 +333,7 @@ const AudioWaveform = ({ audioURL }) => {
 
           // Add event listeners
           wavesurfer.on('ready', () => {
+            if (!isComponentMounted) return; // Skip if component unmounted
             setDuration(wavesurfer.getDuration());
             setIsLoading(false);
             
@@ -340,18 +343,22 @@ const AudioWaveform = ({ audioURL }) => {
           });
 
           wavesurfer.on('play', () => {
+            if (!isComponentMounted) return; // Skip if component unmounted
             setIsPlaying(true);
           });
 
           wavesurfer.on('pause', () => {
+            if (!isComponentMounted) return; // Skip if component unmounted
             setIsPlaying(false);
           });
 
           wavesurfer.on('audioprocess', () => {
+            if (!isComponentMounted) return; // Skip if component unmounted
             setCurrentTime(wavesurfer.getCurrentTime());
           });
 
           wavesurfer.on('seek', () => {
+            if (!isComponentMounted) return; // Skip if component unmounted
             setCurrentTime(wavesurfer.getCurrentTime());
           });
           
@@ -359,9 +366,14 @@ const AudioWaveform = ({ audioURL }) => {
           if (regionsPlugin) {
             // Regions events
             regionsPlugin.on('region-created', (region) => {
-              // Note: We're not handling manual region creation anymore,
-              // but keeping the event handler in case it's needed in the future
+              // We'll check if this region was created by our createRegionsFromSRT function
+              // If it has a customAttributes.fromSRT property, we've already added it to the store
+              if (region.customAttributes && region.customAttributes.fromSRT) {
+                // Region was created by our SRT parser, already in store
+                return;
+              }
               
+              // This is for manually created regions (if we ever re-enable that feature)
               // Increment counter for each new region
               regionCounter++;
               const regionLabel = `Region ${regionCounter}`;
@@ -392,20 +404,24 @@ const AudioWaveform = ({ audioURL }) => {
                   region.element.setAttribute('data-label', regionLabel);
                 }
                 
-                // Store the region in our Zustand store
-                addRegion({
-                  id: region.id,
-                  start: region.start,
-                  end: region.end,
-                  color: color,
-                  label: regionLabel
-                });
+                if (isComponentMounted) {
+                  // Store the region in our Zustand store
+                  addRegion({
+                    id: region.id,
+                    start: region.start,
+                    end: region.end,
+                    color: color,
+                    label: regionLabel
+                  });
+                }
               } catch (error) {
                 console.error('Error configuring region:', error);
               }
             });
             
             regionsPlugin.on('region-clicked', (region) => {
+              if (!isComponentMounted) return; // Skip if component unmounted
+              
               // Instead of playing, select the region
               selectRegion(region.id);
               
@@ -429,6 +445,7 @@ const AudioWaveform = ({ audioURL }) => {
             });
             
             regionsPlugin.on('region-removed', (region) => {
+              if (!isComponentMounted) return; // Skip if component unmounted
               // Remove the region from our store
               removeRegion(region.id);
             });
@@ -436,33 +453,83 @@ const AudioWaveform = ({ audioURL }) => {
 
           // Load audio with error handling
           try {
-            await wavesurfer.load(audioURL);
+            // Create an AbortController to manage the fetch request
+            const controller = new AbortController();
+            const signal = controller.signal;
+            
+            // Store the controller in a ref so we can abort it during cleanup
+            const abortRef = { controller };
+            
+            // Start loading the audio
+            await wavesurfer.load(audioURL, null, signal);
+            
+            // Clean up the abort controller if component unmounts during load
+            return () => {
+              try {
+                if (abortRef.controller) {
+                  abortRef.controller.abort();
+                }
+              } catch (error) {
+                console.warn('Error aborting audio load:', error);
+              }
+            };
           } catch (error) {
-            console.error('Error loading audio:', error);
-            setIsLoading(false);
+            // Only log and set loading state if component is still mounted
+            if (isComponentMounted) {
+              if (error.name !== 'AbortError') {
+                console.error('Error loading audio:', error);
+              }
+              setIsLoading(false);
+            }
           }
         } catch (error) {
-          console.error('Error initializing WaveSurfer:', error);
-          setIsLoading(false);
+          if (isComponentMounted) {
+            console.error('Error initializing WaveSurfer:', error);
+            setIsLoading(false);
+          }
         }
       }
     };
 
-    initWaveSurfer();
+    const cleanup = initWaveSurfer();
 
     // Clean up on unmount
     return () => {
-      if (wavesurferRef.current) {
+      isComponentMounted = false; // Mark component as unmounted
+      
+      // Execute any cleanup returned from initWaveSurfer (for aborting audio load)
+      if (cleanup && typeof cleanup === 'function') {
+        cleanup();
+      }
+      
+      // It's important to first set the state references to null before destroying
+      // to prevent other useEffect hooks from triggering errors
+      const wavesurferInstance = wavesurferRef.current;
+      wavesurferRef.current = null;
+      regionsPluginRef.current = null;
+      
+      // Then destroy the wavesurfer instance if it exists
+      if (wavesurferInstance) {
         try {
-          wavesurferRef.current.destroy();
-          wavesurferRef.current = null;
-          regionsPluginRef.current = null;
+          // Use setTimeout to ensure this happens after other effects have processed
+          setTimeout(() => {
+            try {
+              wavesurferInstance.destroy();
+            } catch (error) {
+              // Don't log AbortErrors as they're expected during unmount
+              if (error.name !== 'AbortError') {
+                console.warn('Error destroying WaveSurfer:', error);
+              }
+            }
+          }, 0);
         } catch (error) {
-          console.warn('Error destroying WaveSurfer:', error);
+          if (error.name !== 'AbortError') {
+            console.warn('Error in cleanup function:', error);
+          }
         }
       }
     };
-  }, [audioURL, addRegion, removeRegion, setDuration, setIsPlaying, setCurrentTime, subtitleFile]);
+  }, [audioURL, addRegion, removeRegion, setDuration, setIsPlaying, setCurrentTime, subtitleFile, selectRegion]);
 
   // Apply selection styling when selectedRegionId changes
   useEffect(() => {
@@ -490,9 +557,12 @@ const AudioWaveform = ({ audioURL }) => {
   
   // Update zoom when it changes
   useEffect(() => {
-    if (wavesurferRef.current && !isLoading) {
+    if (wavesurferRef.current && !isLoading && wavesurferRef.current.getDecodedData) {
       try {
-        wavesurferRef.current.zoom(zoom * 50);
+        // Only set zoom if audio is actually loaded
+        if (wavesurferRef.current.getDecodedData()) {
+          wavesurferRef.current.zoom(zoom * 50);
+        }
       } catch (error) {
         console.warn('Error setting zoom:', error);
       }
@@ -502,10 +572,13 @@ const AudioWaveform = ({ audioURL }) => {
   // Handle window resize
   useEffect(() => {
     const handleResize = () => {
-      if (wavesurferRef.current && !isLoading) {
+      if (wavesurferRef.current && !isLoading && waveformRef.current) {
         try {
-          wavesurferRef.current.drawer.containerWidth = waveformRef.current.clientWidth;
-          wavesurferRef.current.drawBuffer();
+          // Make sure drawer exists before accessing containerWidth
+          if (wavesurferRef.current.drawer) {
+            wavesurferRef.current.drawer.containerWidth = waveformRef.current.clientWidth;
+            wavesurferRef.current.drawBuffer();
+          }
         } catch (error) {
           console.warn('Error during resize:', error);
         }

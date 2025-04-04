@@ -18,60 +18,67 @@ const RegionsList = ({ wavesurfer }) => {
 
   // Delete region
   const deleteRegion = (regionId) => {
-    if (wavesurfer) {
-      try {
-        // Find the regions plugin first
-        const regionsPlugin = wavesurfer.plugins[0];
-        if (regionsPlugin && regionsPlugin.getRegions) {
-          const regions = regionsPlugin.getRegions();
-          const region = regions.find(r => r.id === regionId);
-          if (region) {
-            region.remove();
+    // Always remove from store regardless of wavesurfer status
+    try {
+      if (wavesurfer) {
+        try {
+          // Find the regions plugin first
+          const regionsPlugin = wavesurfer.plugins.find(plugin => plugin.getRegions && typeof plugin.getRegions === 'function');
+          if (regionsPlugin) {
+            const regions = regionsPlugin.getRegions();
+            const region = regions.find(r => r.id === regionId);
+            if (region) {
+              region.remove();
+              return; // Successfully removed, no need to call store action
+            }
           }
+        } catch (error) {
+          console.warn('Error deleting region from wavesurfer:', error);
         }
-      } catch (error) {
-        console.warn('Error deleting region:', error);
-        // Still remove from store even if wavesurfer operation fails
-        removeRegion(regionId);
       }
+    } catch (error) {
+      console.warn('Error in deleteRegion:', error);
     }
+    
+    // If we get here, we need to remove from store directly
+    removeRegion(regionId);
   };
 
   // Seek to region
   const seekToRegion = (regionId) => {
-    if (wavesurfer) {
-      try {
-        // Find the regions plugin first
-        const regionsPlugin = wavesurfer.plugins[0];
-        if (regionsPlugin && regionsPlugin.getRegions) {
-          const regions = regionsPlugin.getRegions();
-          const region = regions.find(r => r.id === regionId);
-          if (region) {
-            wavesurfer.setTime(region.start);
-          }
-        }
-      } catch (error) {
-        console.warn('Error seeking to region:', error);
+    if (!wavesurfer) return;
+    
+    try {
+      // Find the regions plugin first - more safely
+      const regionsPlugin = wavesurfer.plugins.find(plugin => plugin.getRegions && typeof plugin.getRegions === 'function');
+      if (!regionsPlugin) return;
+      
+      const regions = regionsPlugin.getRegions();
+      const region = regions.find(r => r.id === regionId);
+      if (region && typeof wavesurfer.setTime === 'function') {
+        wavesurfer.setTime(region.start);
       }
+    } catch (error) {
+      console.warn('Error seeking to region:', error);
     }
   };
 
   // Play region
   const playRegion = (regionId) => {
-    if (wavesurfer) {
-      try {
-        // Find the regions plugin first
-        const regionsPlugin = wavesurfer.plugins[0];
-        if (regionsPlugin && regionsPlugin.getRegions) {
-          const regions = regionsPlugin.getRegions();
-          const region = regions.find(r => r.id === regionId);
-          if (region) {
-            region.play();
-          }
-        }
-      } catch (error) {
-        console.warn('Error playing region:', error);
+    if (!wavesurfer) return;
+    
+    try {
+      // Find the regions plugin first - more safely
+      const regionsPlugin = wavesurfer.plugins.find(plugin => plugin.getRegions && typeof plugin.getRegions === 'function');
+      if (!regionsPlugin) return;
+      
+      const regions = regionsPlugin.getRegions();
+      const region = regions.find(r => r.id === regionId);
+      if (region && typeof region.play === 'function') {
+        region.play();
       }
+    } catch (error) {
+      console.warn('Error playing region:', error);
     }
   };
 

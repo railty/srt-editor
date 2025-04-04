@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import useAppStore from '../store/useAppStore';
+import useAppStore from '../stores/useAppStore';
 
 const Upload = () => {
   const [dragActive, setDragActive] = useState(false);
