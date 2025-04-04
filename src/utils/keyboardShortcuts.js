@@ -1,6 +1,7 @@
 /**
  * Keyboard shortcuts utility for audio controls
  */
+import { ZOOM_LEVELS, getCurrentZoomIndex } from './zoomUtils';
 
 /**
  * Sets up keyboard shortcuts for audio waveform navigation and control
@@ -54,13 +55,21 @@ export const setupAudioKeyboardShortcuts = (wavesurfer, setZoom, zoom) => {
     // Zoom in: = or +
     if (e.code === 'Equal') {
       e.preventDefault();
-      setZoom(Math.min(zoom + 1, 10));
+      // Get current index
+      const currentIndex = getCurrentZoomIndex(zoom);
+      // Get next zoom level
+      const newIndex = Math.min(currentIndex + 1, ZOOM_LEVELS.length - 1);
+      setZoom(ZOOM_LEVELS[newIndex]);
     }
     
     // Zoom out: -
     if (e.code === 'Minus') {
       e.preventDefault();
-      setZoom(Math.max(zoom - 1, 1));
+      // Get current index
+      const currentIndex = getCurrentZoomIndex(zoom);
+      // Get previous zoom level
+      const newIndex = Math.max(currentIndex - 1, 0);
+      setZoom(ZOOM_LEVELS[newIndex]);
     }
     
     // Reset zoom: 0

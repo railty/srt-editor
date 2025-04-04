@@ -2,6 +2,7 @@ import React from 'react';
 import { useAudioStore } from '../../stores';
 import PlaybackSpeed from './PlaybackSpeed';
 import { formatTime } from '../../utils/srt/SrtParser';
+import { ZOOM_LEVELS, getCurrentZoomIndex, formatZoomDisplay } from '../../utils/zoomUtils';
 
 /**
  * Component for waveform playback controls
@@ -28,17 +29,21 @@ const WaveformControls = ({ wavesurfer, isLoading }) => {
     }
   };
 
-  // Handle zoom in
+  // Handle zoom in (double the current zoom)
   const handleZoomIn = () => {
-    setZoom(Math.min(zoom + 1, 10));
+    const currentIndex = getCurrentZoomIndex(zoom);
+    const newIndex = Math.min(currentIndex + 1, ZOOM_LEVELS.length - 1);
+    setZoom(ZOOM_LEVELS[newIndex]);
   };
 
-  // Handle zoom out
+  // Handle zoom out (halve the current zoom)
   const handleZoomOut = () => {
-    setZoom(Math.max(zoom - 1, 1));
+    const currentIndex = getCurrentZoomIndex(zoom);
+    const newIndex = Math.max(currentIndex - 1, 0);
+    setZoom(ZOOM_LEVELS[newIndex]);
   };
 
-  // Reset zoom to default
+  // Reset zoom to default (1x)
   const resetZoom = () => {
     setZoom(1);
   };
@@ -75,8 +80,8 @@ const WaveformControls = ({ wavesurfer, isLoading }) => {
       <div className="flex items-center space-x-2">
         <button
           onClick={handleZoomOut}
-          disabled={zoom <= 1}
-          className={`p-1 rounded-md ${zoom <= 1 ? 'text-gray-400' : 'text-blue-500 hover:bg-blue-50'}`}
+          disabled={getCurrentZoomIndex(zoom) === 0}
+          className={`p-1 rounded-md ${getCurrentZoomIndex(zoom) === 0 ? 'text-gray-400' : 'text-blue-500 hover:bg-blue-50'}`}
           title="Zoom out"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -84,11 +89,11 @@ const WaveformControls = ({ wavesurfer, isLoading }) => {
             <path fillRule="evenodd" d="M5 8a1 1 0 011-1h4a1 1 0 110 2H6a1 1 0 01-1-1z" clipRule="evenodd" />
           </svg>
         </button>
-        <span className="text-sm text-gray-600">{zoom}x</span>
+        <span className="text-sm text-gray-600">{formatZoomDisplay(zoom)}</span>
         <button
           onClick={handleZoomIn}
-          disabled={zoom >= 10}
-          className={`p-1 rounded-md ${zoom >= 10 ? 'text-gray-400' : 'text-blue-500 hover:bg-blue-50'}`}
+          disabled={getCurrentZoomIndex(zoom) === ZOOM_LEVELS.length - 1}
+          className={`p-1 rounded-md ${getCurrentZoomIndex(zoom) === ZOOM_LEVELS.length - 1 ? 'text-gray-400' : 'text-blue-500 hover:bg-blue-50'}`}
           title="Zoom in"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
