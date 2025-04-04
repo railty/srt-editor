@@ -194,32 +194,29 @@ export const getSpeakerBadgeColor = (speaker) => {
   }
 };
 
+//2 sets, each sets has max 4 speakers
+const speakerColors = {
+  0: [
+    'rgba(255, 99, 132, 0.5)',  // red
+    'rgba(255, 159, 64, 0.5)',  // orange
+    'rgba(255, 206, 86, 0.5)',  // yellow
+    'rgba(75, 192, 192, 0.5)',  // teal
+  ],
+  1: [
+    'rgba(54, 162, 235, 0.5)',  // blue
+    'rgba(153, 102, 255, 0.5)', // purple
+    'rgba(46, 204, 113, 0.5)',  // green
+    'rgba(236, 64, 122, 0.5)',  // pink
+  ]
+};
+
 /**
  * Get a color for a region based on speaker ID
- * @param {number} speaker - Speaker ID 
+ * @param {number} speaker - Speaker ID //0 or 1
  * @returns {string} - RGBA color string
  */
 export const getSpeakerColor = (speaker) => {
-  // Colors for different speakers
-  const speakerColors = {
-    0: [
-      'rgba(255, 99, 132, 0.5)',  // red
-      'rgba(255, 159, 64, 0.5)',  // orange
-      'rgba(255, 206, 86, 0.5)',  // yellow
-      'rgba(75, 192, 192, 0.5)',  // teal
-    ],
-    1: [
-      'rgba(54, 162, 235, 0.5)',  // blue
-      'rgba(153, 102, 255, 0.5)', // purple
-      'rgba(46, 204, 113, 0.5)',  // green
-      'rgba(236, 64, 122, 0.5)',  // pink
-    ]
-  };
-  
-  // Ensure we only use 0 or 1 as index
-  const speakerIdx = speaker % 2;
-  const colorSet = speakerColors[speakerIdx] || speakerColors[0];
-  return colorSet[Math.floor(Math.random() * colorSet.length)];
+  return speakerColors[1][speaker]; //0, 1, ,2, 3
 };
 
 /**
