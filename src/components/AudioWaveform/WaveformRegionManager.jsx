@@ -15,7 +15,8 @@ const WaveformRegionManager = ({
   const { 
     selectRegion, 
     removeRegion,
-    selectedRegionId
+    selectedRegionId,
+    updateRegion
   } = useAudioStore();
 
   // Set up region events
@@ -70,6 +71,11 @@ const WaveformRegionManager = ({
           // Force a redraw of the waveform
           if (wavesurferRef.current.drawer && typeof wavesurferRef.current.drawer.drawBuffer === 'function') {
             wavesurferRef.current.drawer.drawBuffer();
+          }
+          
+          // Set playback position to the start of the selected region
+          if (wavesurferRef.current && typeof wavesurferRef.current.setTime === 'function') {
+            wavesurferRef.current.setTime(selectedRegion.start);
           }
         }
       }
@@ -150,6 +156,11 @@ const WaveformRegionManager = ({
           region.element.classList.add('region-selected');
         }
         
+        // Set playback position to the start of the selected region
+        if (wavesurferRef.current && typeof wavesurferRef.current.setTime === 'function') {
+          wavesurferRef.current.setTime(region.start);
+        }
+        
         // Emit a custom event to notify other components of the selection
         // This will be used by RegionsList to scroll the item into view
         document.dispatchEvent(new CustomEvent('region-selected-from-waveform', {
@@ -163,10 +174,32 @@ const WaveformRegionManager = ({
         removeRegion(region.id);
       };
       
+      // Region updated event (when resized)
+      const handleRegionUpdated = (region) => {
+        console.log('Region updated:', region.id, 'Start:', region.start, 'End:', region.end);
+        // Update the region in our store with new start/end times
+        updateRegion(region.id, {
+          start: region.start,
+          end: region.end
+        });
+      };
+      
+      // Region update-end event (when resize is complete)
+      const handleRegionUpdateEnd = (region) => {
+        console.log('Region update ended:', region.id, 'Start:', region.start, 'End:', region.end);
+        // Ensure the final state is updated in our store
+        updateRegion(region.id, {
+          start: region.start,
+          end: region.end
+        });
+      };
+      
       // Add event listeners
       regionsPlugin.on('region-clicked', handleRegionClick);
       regionsPlugin.on('region-removed', handleRegionRemoved);
       regionsPlugin.on('region-drag', handleRegionDragStart); // Prevent dragging
+      regionsPlugin.on('region-updated', handleRegionUpdated); // Update times during resize
+      regionsPlugin.on('region-update-end', handleRegionUpdateEnd); // Update times when resize completes
       
       // Set up click handler on waveform to maintain default behavior for clicks outside regions
       const waveformContainer = wavesurferRef.current.container;
@@ -186,6 +219,8 @@ const WaveformRegionManager = ({
           regionsPlugin.un('region-clicked', handleRegionClick);
           regionsPlugin.un('region-removed', handleRegionRemoved);
           regionsPlugin.un('region-drag', handleRegionDragStart);
+          regionsPlugin.un('region-updated', handleRegionUpdated);
+          regionsPlugin.un('region-update-end', handleRegionUpdateEnd);
           
           // Clean up waveform click handler
           const waveformContainer = wavesurferRef.current?.container;
@@ -199,7 +234,7 @@ const WaveformRegionManager = ({
     } catch (error) {
       console.error('Error setting up region events:', error);
     }
-  }, [isLoading, regionsPluginRef, wavesurferRef, selectRegion, removeRegion, selectedRegionId]);
+  }, [isLoading, regionsPluginRef, wavesurferRef, selectRegion, removeRegion, updateRegion, selectedRegionId]);
 
   // This component doesn't render anything
   return null;
