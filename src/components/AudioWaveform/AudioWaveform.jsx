@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useAudioStore, useAppStore } from '../../stores';
 import RegionsList from './RegionsList';
 import { setupAudioKeyboardShortcuts } from '../../utils/keyboardShortcuts';
-import { parseSRTWithSpeakers, createRegionLabel, getSpeakerColor } from '../../utils/srt/SrtParser';
+import { parseSRTWithSpeakers, createRegionLabel, getSpeakerColor, getInvertedColor } from '../../utils/srt/SrtParser';
 
 // Import our new components
 import WaveformHeader from './WaveformHeader';

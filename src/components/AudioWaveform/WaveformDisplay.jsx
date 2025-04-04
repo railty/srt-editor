@@ -85,9 +85,9 @@ const WaveformDisplay = ({
               height: 50% !important;
             }
             .wavesurfer-region.region-selected {
-              box-shadow: 0 0 0 2px #ffff00 !important;
-              border: 2px solid #ffff00 !important;
-              z-index: 5 !important;
+              box-shadow: 0 0 0 3px yellow !important;
+              border: 2px solid #ff0000 !important;
+              z-index: 10 !important;
             }
           `;
           document.head.appendChild(style);

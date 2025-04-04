@@ -221,3 +221,30 @@ export const getSpeakerColor = (speaker) => {
   const colorSet = speakerColors[speakerIdx] || speakerColors[0];
   return colorSet[Math.floor(Math.random() * colorSet.length)];
 };
+
+/**
+ * Get an inverted color for a region
+ * @param {string} rgbaColor - Original RGBA color string 
+ * @returns {string} - Inverted RGBA color string
+ */
+export const getInvertedColor = (rgbaColor) => {
+  // Parse the RGBA color
+  const match = rgbaColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+  if (!match) {
+    return rgbaColor; // Return original if not valid RGBA
+  }
+  
+  // Extract RGBA components
+  const [, r, g, b, a] = match.map(v => parseFloat(v));
+  
+  // Invert RGB values (255 - value)
+  const invertedR = 255 - r;
+  const invertedG = 255 - g;
+  const invertedB = 255 - b;
+  
+  // For more dramatic contrast, increase the alpha
+  const newAlpha = Math.min(a * 2, 0.9); // Increase opacity but cap at 0.9
+  
+  // Return new RGBA string with increased alpha for better visibility
+  return `rgba(${invertedR}, ${invertedG}, ${invertedB}, ${newAlpha})`;
+};

@@ -1,9 +1,50 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import useAudioStore from '../../stores/audioStore';
+import { getInvertedColor } from '../../utils/srt/SrtParser';
 
 const RegionsList = ({ wavesurfer }) => {
   // Get regions and selection from store
   const { regions, removeRegion, selectedRegionId, selectRegion } = useAudioStore();
+
+  // Ref to the table container for scrolling
+  const tableContainerRef = useRef(null);
+  // Ref to track the selected row for scrolling into view
+  const selectedRowRef = useRef(null);
+
+  // Listen for region selection from waveform
+  useEffect(() => {
+    const handleRegionSelectedFromWaveform = (event) => {
+      const { regionId } = event.detail;
+      
+      // Find the selected region in our list
+      const selectedRegion = regions.find(r => r.id === regionId);
+      if (selectedRegion && tableContainerRef.current && selectedRowRef.current) {
+        // Scroll the selected row into view with smooth behavior
+        selectedRowRef.current.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'nearest' 
+        });
+      }
+    };
+    
+    // Add event listener
+    document.addEventListener('region-selected-from-waveform', handleRegionSelectedFromWaveform);
+    
+    // Clean up
+    return () => {
+      document.removeEventListener('region-selected-from-waveform', handleRegionSelectedFromWaveform);
+    };
+  }, [regions]);
+
+  // Effect to scroll to selected region when selectedRegionId changes
+  useEffect(() => {
+    if (selectedRegionId && selectedRowRef.current) {
+      selectedRowRef.current.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'nearest' 
+      });
+    }
+  }, [selectedRegionId]);
 
   // Format time in MM:SS.mmm format
   const formatTime = (time) => {
@@ -14,6 +55,71 @@ const RegionsList = ({ wavesurfer }) => {
     const milliseconds = Math.floor((time % 1) * 1000);
     
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+  };
+
+  // Handle region selection from the list
+  const handleRegionSelect = (regionId) => {
+    // First, check if this region is already selected
+    if (regionId === selectedRegionId) {
+      return; // Don't do anything if already selected
+    }
+    
+    try {
+      if (wavesurfer) {
+        // Find the regions plugin
+        const regionsPlugin = wavesurfer.plugins.find(plugin => plugin.getRegions && typeof plugin.getRegions === 'function');
+        if (regionsPlugin) {
+          const regions = regionsPlugin.getRegions();
+          
+          // Reset the previously selected region if it exists
+          if (selectedRegionId) {
+            const prevRegion = regions.find(r => r.id === selectedRegionId);
+            if (prevRegion) {
+              // Restore original color
+              if (prevRegion._originalColor) {
+                prevRegion.setOptions({ color: prevRegion._originalColor });
+              }
+              
+              // Remove selection class
+              if (prevRegion.element) {
+                prevRegion.element.classList.remove('region-selected');
+              }
+            }
+          }
+          
+          // Find the new region to select
+          const newRegion = regions.find(r => r.id === regionId);
+          if (newRegion) {
+            // Store original color if not already stored
+            if (!newRegion._originalColor) {
+              newRegion._originalColor = newRegion.color;
+            }
+            
+            // Apply inverted color
+            const invertedColor = getInvertedColor(newRegion._originalColor);
+            newRegion.setOptions({ color: invertedColor });
+            
+            // Force a redraw of the waveform if possible
+            if (wavesurfer.drawer && typeof wavesurfer.drawer.drawBuffer === 'function') {
+              wavesurfer.drawer.drawBuffer();
+            }
+            
+            // Add selection class
+            if (newRegion.element) {
+              newRegion.element.classList.add('region-selected');
+            }
+            
+            // Scroll to the region on the waveform
+            wavesurfer.setTime(newRegion.start);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Error in handleRegionSelect:', error);
+    }
+    
+    // Update the state
+    selectRegion(regionId);
   };
 
   // Delete region
@@ -110,7 +216,7 @@ const RegionsList = ({ wavesurfer }) => {
   return (
     <div className="mt-4">
       <h4 className="font-medium mb-2">Subtitle Regions</h4>
-      <div className="max-h-40 overflow-y-auto">
+      <div className="max-h-40 overflow-y-auto" ref={tableContainerRef}>
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-100">
@@ -126,9 +232,10 @@ const RegionsList = ({ wavesurfer }) => {
             {regions.map((region) => (
               <tr 
                 key={region.id} 
-                className={`border-b border-gray-100 ${region.id === selectedRegionId ? 'bg-yellow-50' : ''}`}
+                className={`border-b border-gray-100 ${region.id === selectedRegionId ? 'bg-yellow-50' : ''} hover:bg-gray-50 cursor-pointer`}
                 style={{ borderLeft: `4px solid ${region.color?.replace('0.5', '0.8') || 'rgba(0,0,0,0.2)'}` }}
-                onClick={() => selectRegion(region.id)}
+                onClick={() => handleRegionSelect(region.id)}
+                ref={region.id === selectedRegionId ? selectedRowRef : null}
               >
                 <td className="px-2 py-1">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getSpeakerBadgeColor(region.speaker)}`}>
