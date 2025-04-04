@@ -1,15 +1,34 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import useAudioStore from '../../stores/audioStore';
 import { getInvertedColor } from '../../utils/srt/SrtParser';
 
+// Truncate long text for display
+const truncateText = (text, maxLength = 30) => {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
+
 const RegionsList = ({ wavesurfer }) => {
   // Get regions and selection from store
-  const { regions, removeRegion, selectedRegionId, selectRegion } = useAudioStore();
+  const { regions, removeRegion, selectedRegionId, selectRegion, updateRegion } = useAudioStore();
+
+  // State for editing labels
+  const [editingRegionId, setEditingRegionId] = useState(null);
+  const [editingValue, setEditingValue] = useState('');
+  const editInputRef = useRef(null);
 
   // Ref to the table container for scrolling
   const tableContainerRef = useRef(null);
   // Ref to track the selected row for scrolling into view
   const selectedRowRef = useRef(null);
+
+  // Focus the input when editing starts
+  useEffect(() => {
+    if (editingRegionId && editInputRef.current) {
+      editInputRef.current.focus();
+    }
+  }, [editingRegionId]);
 
   // Listen for region selection from waveform
   useEffect(() => {
@@ -59,6 +78,9 @@ const RegionsList = ({ wavesurfer }) => {
 
   // Handle region selection from the list
   const handleRegionSelect = (regionId) => {
+    // If we're editing, don't select on click
+    if (editingRegionId) return;
+    
     // First, check if this region is already selected
     if (regionId === selectedRegionId) {
       return; // Don't do anything if already selected
@@ -126,6 +148,50 @@ const RegionsList = ({ wavesurfer }) => {
     
     // Update the state
     selectRegion(regionId);
+  };
+
+  // Start editing a region label
+  const startEditing = (e, region) => {
+    e.stopPropagation(); // Prevent row selection
+    setEditingRegionId(region.id);
+    setEditingValue(region.label || `Region ${regions.indexOf(region) + 1}`);
+  };
+
+  // Save the edited label
+  const saveLabel = () => {
+    if (editingRegionId) {
+      // Update region in store
+      updateRegion(editingRegionId, { label: editingValue });
+      
+      // Update the region element in the waveform if possible
+      if (wavesurfer) {
+        try {
+          const regionsPlugin = wavesurfer.plugins.find(plugin => plugin.getRegions && typeof plugin.getRegions === 'function');
+          if (regionsPlugin) {
+            const regions = regionsPlugin.getRegions();
+            const region = regions.find(r => r.id === editingRegionId);
+            if (region && region.element) {
+              region.element.setAttribute('data-label', editingValue);
+            }
+          }
+        } catch (error) {
+          console.warn('Error updating region label in waveform:', error);
+        }
+      }
+      
+      // Exit editing mode
+      setEditingRegionId(null);
+    }
+  };
+
+  // Handle input keydown events (Ctrl+Enter to save, Escape to cancel)
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      setEditingRegionId(null); // Cancel editing
+    } else if (e.key === 'Enter' && e.ctrlKey) {
+      // Save on Ctrl+Enter since textarea supports multiline
+      saveLabel();
+    }
   };
 
   // Delete region
@@ -238,7 +304,7 @@ const RegionsList = ({ wavesurfer }) => {
             {regions.map((region) => (
               <tr 
                 key={region.id} 
-                className={`border-b border-gray-100 ${region.id === selectedRegionId ? 'bg-yellow-50' : ''} hover:bg-gray-50 cursor-pointer`}
+                className={`border-b border-gray-100 ${region.id === selectedRegionId ? 'bg-yellow-50' : ''} hover:bg-gray-50 cursor-pointer group`}
                 style={{ borderLeft: `4px solid ${region.color?.replace('0.5', '0.8') || 'rgba(0,0,0,0.2)'}` }}
                 onClick={() => handleRegionSelect(region.id)}
                 ref={region.id === selectedRegionId ? selectedRowRef : null}
@@ -248,7 +314,64 @@ const RegionsList = ({ wavesurfer }) => {
                     {getSpeakerLabel(region.speaker)}
                   </span>
                 </td>
-                <td className="px-2 py-1 font-medium">{region.label || `Region ${regions.indexOf(region) + 1}`}</td>
+                <td className="px-2 py-1 font-medium relative">
+                  {editingRegionId === region.id ? (
+                    <div 
+                      onClick={(e) => e.stopPropagation()} 
+                      className="w-full"
+                      style={{ 
+                        position: 'absolute', 
+                        zIndex: 50, 
+                        background: 'white',
+                        minWidth: '300px',
+                        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+                      }}
+                    >
+                      <textarea
+                        ref={editInputRef}
+                        value={editingValue}
+                        onChange={(e) => setEditingValue(e.target.value)}
+                        onBlur={saveLabel}
+                        onKeyDown={handleKeyDown}
+                        className="w-full px-2 py-1 text-sm border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        autoFocus
+                        rows={Math.min(6, (editingValue.match(/\n/g) || []).length + 2)}
+                        style={{ minHeight: '80px', resize: 'vertical' }}
+                        placeholder="Enter label text here... (Ctrl+Enter to save)"
+                      />
+                      <div className="text-xs text-gray-500 p-1 bg-gray-50">
+                        Press Ctrl+Enter to save or Escape to cancel
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative group">
+                      {truncateText(region.label || `Region ${regions.indexOf(region) + 1}`)}
+                      
+                      {/* Full text tooltip for long labels */}
+                      {region.label && region.label.length > 30 && (
+                        <div 
+                          className="absolute bottom-full left-0 p-2 bg-white border border-gray-200 rounded shadow-lg 
+                                    opacity-0 group-hover:opacity-100 transition-opacity z-50 w-64 text-xs"
+                          style={{ marginBottom: '5px', maxHeight: '200px', overflowY: 'auto' }}
+                        >
+                          {region.label}
+                        </div>
+                      )}
+                      
+                      <div className="absolute right-0 top-1/2 transform -translate-y-1/2">
+                        <button
+                          onClick={(e) => startEditing(e, region)}
+                          className="text-gray-500 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Edit label"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </td>
                 <td className="px-2 py-1">{formatTime(region.start)}</td>
                 <td className="px-2 py-1">{formatTime(region.end)}</td>
                 <td className="px-2 py-1">{formatTime(region.end - region.start)}</td>
