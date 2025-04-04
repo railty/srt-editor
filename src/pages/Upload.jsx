@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import useAppStore from '../stores/useAppStore';
+import useAudioStore from '../stores/useAudioStore';
 
 const Upload = () => {
   const [dragActive, setDragActive] = useState(false);
@@ -8,6 +9,7 @@ const Upload = () => {
   const [success, setSuccess] = useState(false);
   const fileInputRef = useRef(null);
   const { setFiles: storeFiles, setStatus, setCurrentPage } = useAppStore();
+  const { clearRegions } = useAudioStore();
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -43,6 +45,9 @@ const Upload = () => {
     setStatus('Processing files...');
     
     try {
+      // Clear existing regions when uploading new files
+      clearRegions();
+      
       // Store the files in Zustand (now async)
       await storeFiles(audioFile || null, subtitleFile || null);
       setStatus('Files uploaded successfully');

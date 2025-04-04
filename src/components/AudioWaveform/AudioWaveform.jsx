@@ -77,11 +77,15 @@ const AudioWaveform = ({ audioURL }) => {
       return;
     }
     
-    console.log("Creating regions from SRT file");
+    console.log("Creating regions from persisted state or SRT file");
     
-    // Use the importSrt function from the store to get region data
-    const { importSrt } = useAudioStore.getState();
-    const regionDataList = importSrt(subtitleFile.textContent);
+    // Get the current persisted regions from the store
+    const { regions, importSrt } = useAudioStore.getState();
+    
+    // If we have persisted regions, use those instead of re-parsing the SRT file
+    const regionDataList = regions.length > 0 
+      ? regions // Use persisted regions that might contain user edits
+      : importSrt(subtitleFile.textContent); // Only import SRT if no persisted regions exist
     
     // Create WaveSurfer regions from the data
     regionDataList.forEach((regionData) => {

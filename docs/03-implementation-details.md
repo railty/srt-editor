@@ -17,19 +17,46 @@ Files are stored efficiently in the application state:
 - **Audio Files**: Converted to `Uint8Array` and stored as regular arrays for JSON serialization
 - **Subtitle Files**: Stored as text content for efficient processing
 
-The files are persisted using IndexedDB with a localStorage fallback mechanism:
+### Storage Implementation
+
+The application uses IndexedDB for persistent storage, implemented through a custom adapter:
 
 ```javascript
-// From useAppStore.js
-const useAppStore = create(
+// From utils/indexedDBStorage.js
+export const createIndexedDBStorage = (storeName) => {
+  // Each store gets its own database
+  const dbName = `${config.dbNamePrefix}${storeName}`;
+  
+  // Create storage adapter with required methods
+  const indexedDBStorage = {
+    getItem: async (key) => { /* ... */ },
+    setItem: async (key, value) => { /* ... */ },
+    removeItem: async (key) => { /* ... */ }
+  };
+  
+  return createJSONStorage(() => indexedDBStorage);
+};
+```
+
+Key features of this implementation:
+
+1. **Separate Databases**: Each store (app store, audio store) has its own IndexedDB database to prevent schema conflicts
+2. **Consistent Connection Handling**: Database connections are explicitly opened and closed for each operation
+3. **Error Recovery**: If an operation fails, the implementation falls back to localStorage
+4. **Zustand Integration**: The adapter is wrapped with Zustand's `createJSONStorage` for seamless integration
+
+The storage is integrated with Zustand stores:
+
+```javascript
+// From useAppStore.js and useAudioStore.js
+const useStore = create(
   persist(
-    (set) => ({
-      // Store state
-    }),
+    (set) => ({ /* store state and actions */ }),
     {
-      name: 'srt-editor-storage',
-      storage: createJSONStorage(() => createFallbackStorage()),
+      name: 'srt-editor-storage', // unique name for the storage key
+      storage: createIndexedDBStorage('app-store'),
       partialize: (state) => ({
+        // Only persist specific state
         audioFile: state.audioFile,
         subtitleFile: state.subtitleFile
       }),
@@ -37,6 +64,8 @@ const useAppStore = create(
   )
 );
 ```
+
+This approach ensures data persistence while maintaining browser performance and preventing database lock issues.
 
 ## Audio Visualization
 

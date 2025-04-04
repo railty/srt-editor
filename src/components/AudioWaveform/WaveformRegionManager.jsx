@@ -190,8 +190,21 @@ const WaveformRegionManager = ({
         // Ensure the final state is updated in our store
         updateRegion(region.id, {
           start: region.start,
-          end: region.end
+          end: region.end,
+          modified: true // Mark as modified to keep track of user edits
         });
+        
+        // To ensure the changes are persisted immediately, manually trigger persistence
+        // This helps guarantee the changes are saved even if the user refreshes quickly
+        if (wavesurferRef.current) {
+          try {
+            // Force a state update to trigger persistence middleware
+            const currentStore = useAudioStore.getState();
+            currentStore._persist && currentStore._persist.rehydrate && currentStore._persist.rehydrate();
+          } catch (error) {
+            console.warn('Error triggering manual persistence:', error);
+          }
+        }
       };
       
       // Add event listeners

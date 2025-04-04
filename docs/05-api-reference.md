@@ -164,16 +164,44 @@ Application settings component.
 
 ## IndexedDB Storage Adapter
 
-Custom storage adapter for persisting data in IndexedDB with localStorage fallback.
+Custom storage adapter for Zustand that persists data in IndexedDB with localStorage fallback.
 
-### Methods
+### Factory Function
+
+| Function | Parameters | Returns | Description |
+|----------|------------|---------|-------------|
+| `createIndexedDBStorage` | `storeName: String` | Object | Creates a storage adapter for Zustand's persist middleware |
+
+### Storage Methods
 
 | Method | Parameters | Returns | Description |
 |--------|------------|---------|-------------|
-| `getDB` | None | Promise | Gets the IndexedDB database instance |
-| `getItem` | `key: String` | Promise | Gets an item from storage |
-| `setItem` | `key: String, value: Any` | Promise | Sets an item in storage |
-| `removeItem` | `key: String` | Promise | Removes an item from storage |
+| `getItem` | `key: String` | Promise<Any> | Gets an item from storage with fallback to localStorage |
+| `setItem` | `key: String, value: Any` | Promise<void> | Sets an item in storage with fallback to localStorage |
+| `removeItem` | `key: String` | Promise<void> | Removes an item from storage with fallback to localStorage |
+
+### Usage Example
+
+```javascript
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { createIndexedDBStorage } from '../utils/indexedDBStorage';
+
+// Create the storage adapter
+const storage = createIndexedDBStorage('my-store');
+
+// Use it with Zustand's persist middleware
+const useStore = create(
+  persist(
+    (set) => ({ /* store state and actions */ }),
+    {
+      name: 'store-name',
+      storage: storage,
+      partialize: (state) => ({ /* persisted state */ }),
+    }
+  )
+);
+```
 
 ## WaveSurfer.js Integration
 

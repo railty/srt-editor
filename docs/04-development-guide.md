@@ -50,11 +50,24 @@ The project follows a structured approach to organizing code:
 
 ### State Management
 
-The application uses Zustand for state management:
+The application uses Zustand for state management with persistent storage:
 
-1. For global state, use the existing stores or create a new store
-2. For component-specific state, use React's `useState` and `useEffect`
-3. Keep state normalized and avoid duplication
+1. **App Store (`useAppStore.js`)**
+   - Handles application state (current page, status)
+   - Stores uploaded files (audio, subtitle)
+   - Uses IndexedDB persistence with the store name 'app-store'
+
+2. **Audio Store (`useAudioStore.js`)**
+   - Manages audio playback state and waveform
+   - Stores subtitle regions data
+   - Provides SRT import/export functionality
+   - Uses IndexedDB persistence with the store name 'audio-store'
+
+3. **Persistence Layer**
+   - Implemented in `utils/indexedDBStorage.js`
+   - Creates a custom storage adapter for Zustand's persist middleware
+   - Uses separate IndexedDB databases for each store to prevent conflicts
+   - Provides localStorage fallback for robustness
 
 ## Working with Audio and SRT Files
 

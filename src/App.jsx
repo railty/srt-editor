@@ -5,6 +5,7 @@ import Settings from './pages/Settings';
 import Home from './pages/Home';
 import Upload from './pages/Upload';
 import { useAppStore } from './stores';
+import DatabaseDebugger from './components/DatabaseDebugger';
 
 function App() {
   const { currentPage, setCurrentPage, status, setStatus } = useAppStore();
@@ -25,13 +26,16 @@ function App() {
 
   // Update Layout to use the app store and handle navigation
   return (
-    <Layout 
-      onNavigate={setCurrentPage}
-      currentPage={currentPage}
-      status={status}
-    >
-      {renderPage()}
-    </Layout>
+    <>
+      <Layout 
+        onNavigate={setCurrentPage}
+        currentPage={currentPage}
+        status={status}
+      >
+        {renderPage()}
+      </Layout>
+      <DatabaseDebugger />
+    </>
   );
 }
 

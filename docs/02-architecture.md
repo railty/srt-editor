@@ -93,10 +93,21 @@ Components for displaying uploaded files:
 
 ## Persistence Strategy
 
-The application uses a persistence strategy with:
+The application uses a robust persistence strategy with:
 
-1. IndexedDB as the primary storage mechanism
-2. localStorage as a fallback if IndexedDB fails
-3. Custom storage adapter for Zustand's persist middleware
+1. **IndexedDB as the primary storage mechanism**
+   - Each store (app store and audio store) uses its own database
+   - The databases use a consistent naming convention: `srt-editor-new-{store-name}`
+   - Each database contains a single object store named 'data'
+   - This separate database approach prevents schema conflicts
 
-This ensures that user data (uploaded files and application state) is retained between sessions.
+2. **localStorage as a fallback** if IndexedDB fails
+   - Data is still persisted even if IndexedDB is unavailable
+   - Fallback keys use a consistent naming convention
+
+3. **Custom storage adapter for Zustand's persist middleware**
+   - Implements the required getItem, setItem, and removeItem methods
+   - Handles errors gracefully with proper fallbacks
+   - Ensures database connections are properly closed after operations
+   
+This ensures that user data (uploaded files and application state) is retained between sessions and provides resilience against browser storage issues.
