@@ -6,7 +6,7 @@
  */
 
 import useAppStore from './useAppStore';
-import useAudioStore from './audioStore';
+import useAudioStore from './useAudioStore';
 
 export {
   useAppStore,

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useAudioStore, useAppStore } from '../../stores';
 import RegionsList from './RegionsList';
 import { setupAudioKeyboardShortcuts } from '../../utils/keyboardShortcuts';
-import { parseSRTWithSpeakers, createRegionLabel, getSpeakerColor, getInvertedColor } from '../../utils/srt/SrtParser';
+import { getInvertedColor } from '../../utils/srt/SrtParser';
 
 // Import our new components
 import WaveformHeader from './WaveformHeader';
@@ -79,46 +79,31 @@ const AudioWaveform = ({ audioURL }) => {
     
     console.log("Creating regions from SRT file");
     
-    const regions = parseSRTWithSpeakers(subtitleFile.textContent);
-    let regionCounter = 0;
+    // Use the importSrt function from the store to get region data
+    const { importSrt } = useAudioStore.getState();
+    const regionDataList = importSrt(subtitleFile.textContent);
     
-    // Add each subtitle as a region
-    regions.forEach((subtitle) => {
+    // Create WaveSurfer regions from the data
+    regionDataList.forEach((regionData) => {
       try {
-        regionCounter++;
-        
-        // Create a region label
-        const regionLabel = createRegionLabel(regionCounter, subtitle.displayText);
-        
-        // Get a color based on the speaker
-        const color = getSpeakerColor(subtitle.speaker);
-        
         // Calculate vertical position based on speaker
-        // Speaker 0 on top half, Speaker 1 on bottom half
-        let top, height;
+        const speakerIdx = regionData.speaker % 2; // Ensure we only use 0 or 1
         
-        const speakerIdx = subtitle.speaker % 2; // Ensure we only use 0 or 1
-        
-        if (speakerIdx === 0) {
-          // Speaker 0: Top half
-          top = 0;
-          height = 50; // 50% of the height
-        } else {
-          // Speaker 1: Bottom half
-          top = 50;
-          height = 50; // 50% of the height
-        }
+        // Calculate position values
+        const top = speakerIdx === 0 ? 0 : 50;
+        const height = 50; // 50% of the height
         
         // Create the region with custom positioning
         const region = regionsPluginRef.current.addRegion({
-          start: subtitle.startTime,
-          end: subtitle.endTime,
-          color: color,
+          id: regionData.id,
+          start: regionData.start,
+          end: regionData.end,
+          color: regionData.color,
           drag: false, // Disable dragging the region's center
           resize: false, // Disable resize by default - will be enabled for selected region via CSS
           // Custom options for positioning
           customAttributes: {
-            speaker: subtitle.speaker,
+            speaker: regionData.speaker,
             fromSRT: true // Mark this region as created from SRT to avoid duplication
           }
         });
@@ -126,7 +111,7 @@ const AudioWaveform = ({ audioURL }) => {
         // Manually set the region's position after it's created
         if (region && region.element) {
           // Add the label as a data attribute
-          region.element.setAttribute('data-label', regionLabel);
+          region.element.setAttribute('data-label', regionData.label);
           
           // Apply CSS to position the region vertically
           region.element.style.top = `${top}%`;
@@ -136,14 +121,16 @@ const AudioWaveform = ({ audioURL }) => {
           region.element.classList.add(`speaker-${speakerIdx}`);
         }
         
-        // Add the region to our Zustand store with speaker info
+        // Add the region to our Zustand store
         addRegion({
           id: region.id,
-          start: subtitle.startTime,
-          end: subtitle.endTime,
-          color: color,
-          label: regionLabel,
-          speaker: subtitle.speaker
+          start: regionData.start,
+          end: regionData.end,
+          color: regionData.color,
+          label: regionData.label,
+          speaker: regionData.speaker,
+          text: regionData.text,
+          displayText: regionData.displayText
         });
       } catch (error) {
         console.error('Error creating region from SRT:', error);

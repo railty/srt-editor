@@ -1,5 +1,7 @@
 import useAppStore from '../stores/useAppStore';
+import { useAudioStore } from '../stores';
 import { AudioFileDisplay, SubtitleFileDisplay } from '../components/FileDisplay';
+import ExportSrtButton from '../components/ExportSrtButton';
 
 const Home = () => {
   const { audioFile, subtitleFile } = useAppStore();
@@ -17,17 +19,21 @@ const Home = () => {
             <AudioFileDisplay file={audioFile} />
             <SubtitleFileDisplay file={subtitleFile} />
             
-            <div className="text-sm">
+            <div className="text-sm space-y-4">
               <p className="mb-2">Ready to edit your subtitles!</p>
-              <button
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-                onClick={() => {
-                  // Functionality to be added later
-                  alert('Edit functionality will be added in future updates');
-                }}
-              >
-                Start Editing
-              </button>
+              <div className="flex space-x-4">
+                <button
+                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+                  onClick={() => {
+                    // Functionality to be added later
+                    alert('Edit functionality will be added in future updates');
+                  }}
+                >
+                  Start Editing
+                </button>
+                
+                <ExportSrtButton />
+              </div>
             </div>
           </div>
         )}

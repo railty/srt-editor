@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import useAudioStore from '../../stores/audioStore';
+import useAudioStore from '../../stores/useAudioStore';
 import { getInvertedColor } from '../../utils/srt/SrtParser';
 
 // Truncate long text for display
